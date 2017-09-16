@@ -21,7 +21,7 @@ using System.Collections;
 using System;
 
 public class pcvr : MonoBehaviour {
-	public static bool bIsHardWare = true;
+	public static bool bIsHardWare = false;
 	public static bool IsTestPCKey = false;
 	public static bool IsTestHardWareError = false;
 	/// <summary>
@@ -187,27 +187,27 @@ public class pcvr : MonoBehaviour {
 		#endif
 
 		Debug.Log("MyCOMDevice.PcvrComSt "+MyCOMDevice.PcvrComSt);
-		switch (MyCOMDevice.PcvrComSt) {
-		case PcvrComState.TanKeFangXiangZhenDong:
-			MyCOMDevice.ComThreadClass.BufLenRead = 39;
-			MyCOMDevice.ComThreadClass.BufLenWrite = 32;
-			break;
-		case PcvrComState.TanKeGunZhenDong:
-			MyCOMDevice.ComThreadClass.BufLenRead = 27;
-			MyCOMDevice.ComThreadClass.BufLenWrite = 23;
-			break;
-		}
+		//switch (MyCOMDevice.PcvrComSt) {
+		//case PcvrComState.TanKeFangXiangZhenDong:
+		//	MyCOMDevice.ComThreadClass.BufLenRead = 39;
+		//	MyCOMDevice.ComThreadClass.BufLenWrite = 32;
+		//	break;
+		//case PcvrComState.TanKeGunZhenDong:
+		//	MyCOMDevice.ComThreadClass.BufLenRead = 27;
+		//	MyCOMDevice.ComThreadClass.BufLenWrite = 23;
+		//	break;
+		//}
 
 		if (Application.loadedLevel == (int)GameLevel.Movie) {
 			AudioManager.Instance.SetParentTran(transform);
 		}
-		
-		#if TEST_SHUIQIANG_ZUOBIAO
+
+        #if TEST_SHUIQIANG_ZUOBIAO
 		GunPosOffsetPY = 0f; //test.
 		XkGameCtrl.ScreenWidth = 226.6f;
 		XkGameCtrl.ScreenHeight = 128f;
-		#endif
-	}
+#endif
+    }
 
 	void Start()
 	{
@@ -222,8 +222,12 @@ public class pcvr : MonoBehaviour {
 	}
 
 	void Update()
-	{
-		#if TEST_SHUIQIANG_ZUOBIAO
+    {
+        if (IsJiaoZhunDianDongGang)
+        {
+            CheckIsEndDianDongGangJiaoZhun();
+        }
+        #if TEST_SHUIQIANG_ZUOBIAO
 		if (Input.GetKeyUp(KeyCode.X)) {
 			if (ShuiQiangX >= 5f) {
 				ShuiQiangX = 0f;
@@ -241,9 +245,9 @@ public class pcvr : MonoBehaviour {
 				ShuiQiangY += 1f;
 			}
 		}
-		#endif
+#endif
 
-		if (GameTypeCtrl.AppTypeStatic == AppGameType.LianJiServer) {
+        if (GameTypeCtrl.AppTypeStatic == AppGameType.LianJiServer) {
 			return;
 		}
 		CheckFeiJiZuoYiQiNangTime();
@@ -252,13 +256,10 @@ public class pcvr : MonoBehaviour {
 		CheckIsPlayerActivePcvr();
         ChangeQiNangDouDong();
     }
-
+    
 	// Update is called once per frame
 	void FixedUpdate()
 	{
-		if (GameTypeCtrl.AppTypeStatic == AppGameType.LianJiServer) {
-			return;
-		}
 		CheckCrossPositionPOne();
 		CheckCrossPositionPTwo();
 
@@ -280,14 +281,16 @@ public class pcvr : MonoBehaviour {
 
 //	static byte ReadHead_1 = 0x01;
 //	static byte ReadHead_2 = 0x55;
-	static byte WriteHead_1 = 0x02;
-	static byte WriteHead_2 = 0x55;
-	static byte WriteEnd_1 = 0x0d;
-	static byte WriteEnd_2 = 0x0a;
-	byte EndRead_1 = 0x41;
-	byte EndRead_2 = 0x42;
-	byte EndRead_3 = 0x43;
-	byte EndRead_4 = 0x44;
+	public byte WriteHead_1 = 0x02;
+	const byte WriteHead_2 = 0x55;
+	const byte WriteEnd_1 = 0x0d;
+	const byte WriteEnd_2 = 0x0a;
+    const byte HeadRead_1 = 0x01;
+    const byte HeadRead_2 = 0x55;
+    const byte EndRead_1 = 0x41;
+    const byte EndRead_2 = 0x42;
+    const byte EndRead_3 = 0x43;
+    const byte EndRead_4 = 0x44;
 
 	public static void CheckMovePlayerZuoYi()
 	{
@@ -1118,409 +1121,727 @@ QiNangArray[0]            QiNangArray[1]
 	const float TimeDisGaoBaoDan = 0.08f;
 	float[] LastFireTimeArray = {0f, 0f};
 	float[] LastFireActiveTimeArray = {0f, 0f};
-	void SendMessage()
+    /// <summary>
+    /// 轴的运行命令(俯视).
+    /// </summary>
+    public enum ZhouCmdEnum
+    {
+        ShunShiZhen = 0xaa, //顺时针-轴向上升.
+        NiShiZhen = 0xbb, //逆时针-轴向下降.
+        Stop = 0x55, //停止(均为俯视).
+    }
+    public ZhouCmdEnum ZhouCmdStateA = ZhouCmdEnum.Stop;
+    public ZhouCmdEnum ZhouCmdStateB = ZhouCmdEnum.Stop;
+    public ZhouCmdEnum ZhouCmdStateC = ZhouCmdEnum.Stop;
+    public ZhouCmdEnum ZhouCmdStateD = ZhouCmdEnum.Stop;
+    /// <summary>
+    /// 轴的运行速度[0xa0, 0xaf].
+    /// </summary>
+    byte ZhouMoveSpeedA = 0xa0;
+    /// <summary>
+    /// 轴的运行速度[0xb0, 0xbf].
+    /// </summary>
+    byte ZhouMoveSpeedB = 0xb0;
+    /// <summary>
+    /// 轴的运行速度[0xc0, 0xcf].
+    /// </summary>
+    byte ZhouMoveSpeedC = 0xc0;
+    /// <summary>
+    /// 轴的运行速度[0xd0, 0xdf].
+    /// </summary>
+    byte ZhouMoveSpeedD = 0xd0;
+    /// <summary>
+    /// 设置轴的运行速度.
+    /// zhouIndex轴的索引[0, 3].
+    /// speedVal轴的速度[0, f].
+    /// </summary>
+    public void SetZhouMoveSpeed(byte zhouIndex, byte speedVal)
+    {
+        switch (zhouIndex)
+        {
+            case 0:
+                {
+                    ZhouMoveSpeedA = (byte)(0x10 | speedVal);
+                    break;
+                }
+            case 1:
+                {
+                    ZhouMoveSpeedB = (byte)(0x10 | speedVal);
+                    break;
+                }
+            case 2:
+                {
+                    ZhouMoveSpeedC = (byte)(0x10 | speedVal);
+                    break;
+                }
+            case 3:
+                {
+                    ZhouMoveSpeedD = (byte)(0xd0 | speedVal);
+                    break;
+                }
+        }
+    }
+    /// <summary>
+    /// 轴的运行数量(行程)[0, 65535].
+    /// </summary>
+    public int ZhouMoveDisA = 0;
+    public int ZhouMoveDisB = 0;
+    public int ZhouMoveDisC = 0;
+    public int ZhouMoveDisD = 0;
+    bool IsJiaoZhunDianDongGang = false;
+    public int[] DianDongGangXingCheng = new int[3];
+    public int[] DianDongGangPosCur = new int[3];
+    float TimeJiaoZhunDianDongGang = 0;
+    const float TimeOutJiaoZhunDianDongGang = 20f; //校准电动缸的最大时间,如果超时则停止校准。
+    public void InitJiaoZhunDianDongGang()
+    {
+        if (IsJiaoZhunDianDongGang)
+        {
+            return;
+        }
+        IsJiaoZhunDianDongGang = true;
+        DianDongGangXingCheng = new int[3];
+        DianDongGangJiLuCount = 0;
+        DianDongGangJiaoZhunEndCount = 0;
+        TimeJiaoZhunDianDongGang = Time.time;
+    }
+    bool IsStartJiLuDianDongGangXingCheng = false;
+    byte DianDongGangJiLuCount = 0; //统计运动到最低点时电动缸的数量.
+    /// <summary>
+    /// 当电动缸最高点传感器触发后回调该函数.
+    /// </summary>
+    void CheckIsStartJiLuDianDongGangXingCheng()
+    {
+        DianDongGangJiLuCount++;
+        if (DianDongGangJiLuCount >= 3)
+        {
+            IsStartJiLuDianDongGangXingCheng = true;
+        }
+    }
+    const int DianDongGangJiaoZhunXingCheng = 2000; //电动缸校准时采用的移动行程.
+    const int DianDongGangJiaoZhunSpeed = 2000; //电动缸校准时采用的移动速度.
+    /// <summary>
+    /// 当所有电动缸运动到最高点传感器时开始记录电动缸的最大行程.
+    /// </summary>
+    void JiLuDianDongGangXingCheng(byte indexVal)
+    {
+        DianDongGangXingCheng[indexVal] += DianDongGangJiaoZhunXingCheng;
+    }
+    byte DianDongGangJiaoZhunEndCount = 0; //电动缸校准结束的记录数据.
+    const byte DianDongGangCount = 3; //电动缸数量.
+    /// <summary>
+    /// 检测是否结束电动缸的校准.
+    /// </summary>
+    void CheckIsEndDianDongGangJiaoZhun(bool isTrigger = false)
+    {
+        if (!IsJiaoZhunDianDongGang)
+        {
+            return;
+        }
+
+        if (isTrigger)
+        {
+            DianDongGangJiaoZhunEndCount++;
+        }
+
+        if (DianDongGangJiaoZhunEndCount >= DianDongGangCount)
+        {
+            Debug.Log("Unity: -> End JiaoZhunDianDongGang!");
+            Debug.Log("Unity: -> dgXingCheng1 " + DianDongGangXingCheng[0]
+                + "dgXingCheng2 " + DianDongGangXingCheng[1]
+                + "dgXingCheng3 " + DianDongGangXingCheng[2]);
+            XKGlobalData.GetInstance().SaveZhouMaiChongMaxVal(DianDongGangXingCheng);
+            IsJiaoZhunDianDongGang = false;
+            return;
+        }
+
+        if (Time.time - TimeJiaoZhunDianDongGang >= TimeOutJiaoZhunDianDongGang)
+        {
+            Debug.Log("Unity: -> End JiaoZhunDianDongGang! time out!");
+            IsJiaoZhunDianDongGang = false;
+        }
+    }
+    void SendMessage()
 	{
 		if (!MyCOMDevice.IsFindDeviceDt) {
 			return;
 		}
 		
-		byte []buffer;
-		buffer = new byte[HID_BUF_LEN_WRITE];
+		byte []buffer = new byte[HID_BUF_LEN_WRITE];
 		buffer[0] = WriteHead_1;
 		buffer[1] = WriteHead_2;
 		buffer[HID_BUF_LEN_WRITE - 2] = WriteEnd_1;
 		buffer[HID_BUF_LEN_WRITE - 1] = WriteEnd_2;
-		switch (MyCOMDevice.PcvrComSt) {
-		case PcvrComState.TanKeFangXiangZhenDong:
-		{
-			#if !COM_TANK_TEST
-			for (int i = 5; i < HID_BUF_LEN_WRITE - 2; i++) {
-				buffer[i] = (byte)(UnityEngine.Random.Range(0, 10000) % 256);
-			}
-			
-			if (IsSubPlayerCoin) {
-				buffer[2] = 0xaa;
-				buffer[3] = (byte)subCoinNum12;
-				//buffer[4] = (byte)subCoinNum34;
-				//ScreenLog.Log("sub coinP12 "+subCoinNum12.ToString("X2")+", coinP34 "+subCoinNum34.ToString("X2"));
-			}
-			
-			switch (StartLightStateP1) {
-			case LedState.Liang:
-				buffer[5] |= 0x01;
-				break;
-				
-			case LedState.Shan:
-				buffer[5] |= 0x01;
-				break;
-				
-			case LedState.Mie:
-				buffer[5] &= 0xfe;
-				break;
-			}
-			
-			switch (StartLightStateP2) {
-			case LedState.Liang:
-				buffer[5] |= 0x02;
-				break;
-				
-			case LedState.Shan:
-				buffer[5] |= 0x02;
-				break;
-				
-			case LedState.Mie:
-				buffer[5] &= 0xfd;
-				break;
-			}
-			buffer[5] &= 0xe3; //close led3-5.
-			
-			if (DongGanState == 1 || HardwareCheckCtrl.IsTestHardWare) {
-				buffer[6] = (byte)(QiNangArray[0]
-				                   + (QiNangArray[1] << 1)
-				                   + (QiNangArray[2] << 2)
-				                   + (QiNangArray[3] << 3)
-				                   + (QiNangArray[4] << 4)
-				                   + (QiNangArray[5] << 5)
-				                   + (QiNangArray[6] << 6)
-				                   + (QiNangArray[7] << 7));
-			}
-			else {
-				buffer[6] = 0x00;
-				
-				if (RunZuoYiState[0] == 0x00) {
-					SetRunZuoYiState(PlayerEnum.PlayerOne, 1);
-				}
-				
-				if (RunZuoYiState[1] == 0x00) {
-					SetRunZuoYiState(PlayerEnum.PlayerTwo, 1);
-				}
-			}
-			
-			if (IsJiaoYanHid) {
-				for (int i = 0; i < 4; i++) {
-					buffer[i + 21] = JiaoYanMiMa[i];
-				}
-				
-				for (int i = 0; i < 4; i++) {
-					buffer[i + 25] = JiaoYanDt[i];
-				}
-			}
-			else {
-				RandomJiaoYanMiMaVal();
-				for (int i = 0; i < 4; i++) {
-					buffer[i + 21] = JiaoYanMiMaRand[i];
-				}
-				
-				//0x41 0x42 0x43 0x44
-				for (int i = 26; i < 29; i++) {
-					buffer[i] = (byte)UnityEngine.Random.Range(0x00, 0x40);
-				}
-				buffer[25] = 0x00;
-				
-				for (int i = 26; i < 29; i++) {
-					buffer[25] ^= buffer[i];
-				}
-			}
+        for (int i = 5; i < HID_BUF_LEN_WRITE - 2; i++)
+        {
+            buffer[i] = (byte)(UnityEngine.Random.Range(0, 10000) % 256);
+        }
 
-			if (!HardwareCheckCtrl.IsTestHardWare) {
-				if (SetPanelUiRoot.IsOpenSetPanel) {
-					buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
-					buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
-				}
-				else {
-					if (IsCloseGunZhenDong) {
-						buffer[8] = 0x00;
-						buffer[9] = 0x00;
-					}
-					else {
-						float timeDisVal = TimeDisJiQiangZiDan;
-						float timeActiveDisVal = TimeDisJiHuoGunDouDong;
-						if (XkGameCtrl.IsActivePlayerOne) {
-							if (XkGameCtrl.GaoBaoDanNumPOne > 0) {
-								timeDisVal = TimeDisGaoBaoDan;
-							}
-							
-							if (Time.realtimeSinceStartup - LastFireTimeArray[0] < timeDisVal) {
-								LastFireActiveTimeArray[0] = Time.realtimeSinceStartup;
-								buffer[8] = 0x00;
-							}
-							else {
-								if (Time.realtimeSinceStartup - LastFireActiveTimeArray[0] >= timeActiveDisVal) {
-									LastFireTimeArray[0] = Time.realtimeSinceStartup;
-								}
-								buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
-							}
-						}
-						else {
-							buffer[8] = 0x00;
-						}
-						
-						if (XkGameCtrl.IsActivePlayerTwo) {
-							timeDisVal = TimeDisJiQiangZiDan;
-							if (XkGameCtrl.GaoBaoDanNumPTwo > 0) {
-								timeDisVal = TimeDisGaoBaoDan;
-							}
-							
-							if (Time.realtimeSinceStartup - LastFireTimeArray[1] < timeDisVal) {
-								LastFireActiveTimeArray[1] = Time.realtimeSinceStartup;
-								buffer[9] = 0x00;
-							}
-							else {
-								if (Time.realtimeSinceStartup - LastFireActiveTimeArray[1] >= timeActiveDisVal) {
-									LastFireTimeArray[1] = Time.realtimeSinceStartup;
-								}
-								buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
-							}
-						}
-						else {
-							buffer[9] = 0x00;
-						}
-					}
-				}
-			}
-			else {
-				buffer[8] = (byte)QiangZhenDongP1;
-				buffer[9] = (byte)QiangZhenDongP2;
-			}
+        if (IsJiaoYanHid)
+        {
+            for (int i = 0; i < 4; i++)
+            {
+                buffer[i + 21] = JiaoYanMiMa[i];
+            }
 
-			if (HardwareCheckCtrl.IsTestHardWare) {
-				buffer[10] = (byte)QiangZhenDongP1;
-				buffer[11] = (byte)QiangZhenDongP2;
-			}
-			else {
-				buffer[10] = 0x00;
-				buffer[11] = 0x00;
-			}
+            for (int i = 0; i < 4; i++)
+            {
+                buffer[i + 25] = JiaoYanDt[i];
+            }
+        }
+        else
+        {
+            RandomJiaoYanMiMaVal();
+            for (int i = 0; i < 4; i++)
+            {
+                buffer[i + 21] = JiaoYanMiMaRand[i];
+            }
 
-			if (JiFenJieMianCtrl.GetInstance() != null && JiFenJieMianCtrl.GetInstance().GetIsShowFinishTask()) {
-				buffer[12] = 0x00;
-				buffer[13] = 0x00;
-				buffer[14] = 0x00;
-				buffer[15] = 0x00;
-			}
-			else {
-				if (!HardwareCheckCtrl.IsTestHardWare) {
-					buffer[12] = XkGameCtrl.IsActivePlayerOne == true ? ZuoYiDianJiSpeedVal[0] : (byte)0x00;
-					buffer[13] = XkGameCtrl.IsActivePlayerTwo == true ? ZuoYiDianJiSpeedVal[1] : (byte)0x00;
-					buffer[14] = XkGameCtrl.IsActivePlayerThree == true ? ZuoYiDianJiSpeedVal[2] : (byte)0x00;
-					buffer[15] = XkGameCtrl.IsActivePlayerFour == true ? ZuoYiDianJiSpeedVal[3] : (byte)0x00;
-				}
-				else {
-					buffer[12] = ZuoYiDianJiSpeedVal[0];
-					buffer[13] = ZuoYiDianJiSpeedVal[1];
-					buffer[14] = ZuoYiDianJiSpeedVal[2];
-					buffer[15] = ZuoYiDianJiSpeedVal[3];
-				}
-			}
+            //0x41 0x42 0x43 0x44
+            for (int i = 26; i < 29; i++)
+            {
+                buffer[i] = (byte)UnityEngine.Random.Range(0x00, 0x40);
+            }
+            buffer[25] = 0x00;
 
-			if (!IsRecordTimeFangXiangPan) {
-				IsRecordTimeFangXiangPan = true;
-				TimeFangXiangPan = Time.realtimeSinceStartup;
-				buffer[16] = 0xaa;
-				buffer[17] = 0xaa;
-			}
-			else {
-				if (Time.realtimeSinceStartup - TimeFangXiangPan < 60f) {
-					buffer[16] = 0xaa;
-					buffer[17] = 0xaa;
-				}
-				else {
-					if (HardwareCheckCtrl.IsTestHardWare) {
-						buffer[16] = FangXiangPanDouDongVal[0];
-						buffer[17] = FangXiangPanDouDongVal[1];
-					}
-					else {
-						buffer[16] = XkGameCtrl.IsActivePlayerOne == true ? FangXiangPanDouDongVal[0] : (byte)0x00;
-						buffer[17] = XkGameCtrl.IsActivePlayerTwo == true ? FangXiangPanDouDongVal[1] : (byte)0x00;
-					}
-				}
-			}
-			buffer[18] = 0x00;
-			buffer[19] = 0x00;
-			buffer[20] = 0x00;
-			for (int i = 2; i <= 11; i++) {
-				buffer[20] ^= buffer[i];
-			}
-			
-			buffer[29] = 0x00;
-			for (int i = 0; i < HID_BUF_LEN_WRITE; i++) {
-				if (i == 29) {
-					continue;
-				}
-				buffer[29] ^= buffer[i];
-			}
-			#endif
-		}
-		break;
-		case PcvrComState.TanKeGunZhenDong:
-		{
-			#if COM_TANK_TEST || COM_FEIJI_TX
-			for (int i = 4; i < HID_BUF_LEN_WRITE - 2; i++) {
-				buffer[i] = (byte)(UnityEngine.Random.Range(0, 10000) % 256);
-			}
-			
-			if (IsSubPlayerCoin) {
-				buffer[2] = 0xaa;
-				buffer[3] = (byte)subCoinNum12;
-			}
-			
-			switch (StartLightStateP1) {
-			case LedState.Liang:
-				buffer[4] |= 0x01;
-				break;
-				
-			case LedState.Shan:
-				buffer[4] |= 0x01;
-				break;
-				
-			case LedState.Mie:
-				buffer[4] &= 0xfe;
-				break;
-			}
-			
-			switch (StartLightStateP2) {
-			case LedState.Liang:
-				buffer[4] |= 0x02;
-				break;
-				
-			case LedState.Shan:
-				buffer[4] |= 0x02;
-				break;
-				
-			case LedState.Mie:
-				buffer[4] &= 0xfd;
-				break;
-			}
-			
-			if (DongGanState == 1 || HardwareCheckCtrl.IsTestHardWare) {
-				buffer[5] = (byte)(QiNangArray[0]
-				                   + (QiNangArray[1] << 1)
-				                   + (QiNangArray[2] << 2)
-				                   + (QiNangArray[3] << 3)
-				                   + (QiNangArray[4] << 4)
-				                   + (QiNangArray[5] << 5)
-				                   + (QiNangArray[6] << 6)
-				                   + (QiNangArray[7] << 7));
-			}
-			else {
-				buffer[5] = 0x00;
-				
-				if (RunZuoYiState[0] == 0x00) {
-					SetRunZuoYiState(PlayerEnum.PlayerOne, 1);
-				}
+            for (int i = 26; i < 29; i++)
+            {
+                buffer[25] ^= buffer[i];
+            }
+        }
+        
+        if (IsSubPlayerCoin)
+        {
+            buffer[2] = 0xaa;
+            buffer[3] = (byte)subCoinNum12;
+            //buffer[4] = (byte)subCoinNum34;
+            //ScreenLog.Log("sub coinP12 "+subCoinNum12.ToString("X2")+", coinP34 "+subCoinNum34.ToString("X2"));
+        }
 
-				if (RunZuoYiState[1] == 0x00) {
-					SetRunZuoYiState(PlayerEnum.PlayerTwo, 1);
-				}
-			}
-			
-			if (IsJiaoYanHid) {
-				for (int i = 0; i < 4; i++) {
-					buffer[i + 10] = JiaoYanMiMa[i];
-				}
-				
-				for (int i = 0; i < 4; i++) {
-					buffer[i + 14] = JiaoYanDt[i];
-				}
-			}
-			else {
-				RandomJiaoYanMiMaVal();
-				for (int i = 0; i < 4; i++) {
-					buffer[i + 10] = JiaoYanMiMaRand[i];
-				}
-				
-				//0x41 0x42 0x43 0x44
-				for (int i = 15; i < 18; i++) {
-					buffer[i] = (byte)UnityEngine.Random.Range(0x00, 0x40);
-				}
-				buffer[14] = 0x00;
-				
-				for (int i = 15; i < 18; i++) {
-					buffer[14] ^= buffer[i];
-				}
-			}
+        switch (StartLightStateP1)
+        {
+            case LedState.Liang:
+            case LedState.Shan:
+                buffer[5] |= 0x01;
+                break;
 
-			if (!HardwareCheckCtrl.IsTestHardWare) {
-				if (SetPanelUiRoot.IsOpenSetPanel) {
-					buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
-					buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
-				}
-				else {
-					if (IsCloseGunZhenDong) {
-						buffer[8] = 0x00;
-						buffer[9] = 0x00;
-					}
-					else {
-						float timeDisVal = TimeDisJiQiangZiDan;
-						float timeActiveDisVal = TimeDisJiHuoGunDouDong;
-						if (XkGameCtrl.IsActivePlayerOne) {
-							if (XkGameCtrl.GaoBaoDanNumPOne > 0) {
-								timeDisVal = TimeDisGaoBaoDan;
-							}
-							
-							if (Time.realtimeSinceStartup - LastFireTimeArray[0] < timeDisVal) {
-								LastFireActiveTimeArray[0] = Time.realtimeSinceStartup;
-								buffer[8] = 0x00;
-							}
-							else {
-								if (Time.realtimeSinceStartup - LastFireActiveTimeArray[0] >= timeActiveDisVal) {
-									LastFireTimeArray[0] = Time.realtimeSinceStartup;
-								}
-								buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
-							}
-						}
-						else {
-							buffer[8] = 0x00;
-						}
-						
-						if (XkGameCtrl.IsActivePlayerTwo) {
-							timeDisVal = TimeDisJiQiangZiDan;
-							if (XkGameCtrl.GaoBaoDanNumPTwo > 0) {
-								timeDisVal = TimeDisGaoBaoDan;
-							}
-							
-							if (Time.realtimeSinceStartup - LastFireTimeArray[1] < timeDisVal) {
-								LastFireActiveTimeArray[1] = Time.realtimeSinceStartup;
-								buffer[9] = 0x00;
-							}
-							else {
-								if (Time.realtimeSinceStartup - LastFireActiveTimeArray[1] >= timeActiveDisVal) {
-									LastFireTimeArray[1] = Time.realtimeSinceStartup;
-								}
-								buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
-							}
-						}
-						else {
-							buffer[9] = 0x00;
-						}
-					}
-				}
-			}
-			else {
-				buffer[8] = (byte)QiangZhenDongP1;
-				buffer[9] = (byte)QiangZhenDongP2;
-			}
-			
-			buffer[6] = 0x00;
-			for (int i = 2; i <= 11; i++) {
-				if (i == 6) {
-					continue;
-				}
-				buffer[6] ^= buffer[i];
-			}
-			
-			buffer[19] = 0x00;
-			for (int i = 0; i < HID_BUF_LEN_WRITE; i++) {
-				if (i == 19) {
-					continue;
-				}
-				buffer[19] ^= buffer[i];
-			}
-			#endif
-		}
-		break;
-		}
-		MyCOMDevice.ComThreadClass.WriteByteMsg = buffer;
+            case LedState.Mie:
+                buffer[5] &= 0xfe;
+                break;
+        }
+
+        switch (StartLightStateP2)
+        {
+            case LedState.Liang:
+            case LedState.Shan:
+                buffer[5] |= 0x02;
+                break;
+
+            case LedState.Mie:
+                buffer[5] &= 0xfd;
+                break;
+        }
+        buffer[5] &= 0xe3; //close led3-5.
+        buffer[6] = 0x00;
+        buffer[7] = 0x00;
+
+        if (!HardwareCheckCtrl.IsTestHardWare)
+        {
+            if (SetPanelUiRoot.IsOpenSetPanel)
+            {
+                buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
+                buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
+            }
+            else
+            {
+                if (IsCloseGunZhenDong)
+                {
+                    buffer[8] = 0x00;
+                    buffer[9] = 0x00;
+                }
+                else
+                {
+                    float timeDisVal = TimeDisJiQiangZiDan;
+                    float timeActiveDisVal = TimeDisJiHuoGunDouDong;
+                    if (XkGameCtrl.IsActivePlayerOne)
+                    {
+                        if (XkGameCtrl.GaoBaoDanNumPOne > 0)
+                        {
+                            timeDisVal = TimeDisGaoBaoDan;
+                        }
+
+                        if (Time.realtimeSinceStartup - LastFireTimeArray[0] < timeDisVal)
+                        {
+                            LastFireActiveTimeArray[0] = Time.realtimeSinceStartup;
+                            buffer[8] = 0x00;
+                        }
+                        else
+                        {
+                            if (Time.realtimeSinceStartup - LastFireActiveTimeArray[0] >= timeActiveDisVal)
+                            {
+                                LastFireTimeArray[0] = Time.realtimeSinceStartup;
+                            }
+                            buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
+                        }
+                    }
+                    else
+                    {
+                        buffer[8] = 0x00;
+                    }
+
+                    if (XkGameCtrl.IsActivePlayerTwo)
+                    {
+                        timeDisVal = TimeDisJiQiangZiDan;
+                        if (XkGameCtrl.GaoBaoDanNumPTwo > 0)
+                        {
+                            timeDisVal = TimeDisGaoBaoDan;
+                        }
+
+                        if (Time.realtimeSinceStartup - LastFireTimeArray[1] < timeDisVal)
+                        {
+                            LastFireActiveTimeArray[1] = Time.realtimeSinceStartup;
+                            buffer[9] = 0x00;
+                        }
+                        else
+                        {
+                            if (Time.realtimeSinceStartup - LastFireActiveTimeArray[1] >= timeActiveDisVal)
+                            {
+                                LastFireTimeArray[1] = Time.realtimeSinceStartup;
+                            }
+                            buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
+                        }
+                    }
+                    else
+                    {
+                        buffer[9] = 0x00;
+                    }
+                }
+            }
+        }
+        else
+        {
+            buffer[8] = (byte)QiangZhenDongP1;
+            buffer[9] = (byte)QiangZhenDongP2;
+        }
+        buffer[11] = (byte)((ZhouMoveDisA >> 8) & 0xff);
+        buffer[12] = (byte)(ZhouMoveDisA & 0xff);
+        buffer[15] = (byte)((ZhouMoveDisB >> 8) & 0xff);
+        buffer[16] = (byte)(ZhouMoveDisB & 0xff);
+        buffer[30] = (byte)((ZhouMoveDisC >> 8) & 0xff);
+        buffer[31] = (byte)(ZhouMoveDisC & 0xff);
+        buffer[34] = (byte)((ZhouMoveDisD >> 8) & 0xff);
+        buffer[35] = (byte)(ZhouMoveDisD & 0xff);
+        buffer[13] = ZhouMoveSpeedA;
+        buffer[17] = ZhouMoveSpeedB;
+        buffer[19] = ZhouMoveSpeedC;
+        buffer[33] = ZhouMoveSpeedD;
+        buffer[10] = (byte)ZhouCmdStateA;
+        buffer[14] = (byte)ZhouCmdStateB;
+        buffer[18] = (byte)ZhouCmdStateC;
+        buffer[32] = (byte)ZhouCmdStateD;
+
+        buffer[20] = 0x00;
+        for (int i = 2; i <= 11; i++)
+        {
+            buffer[20] ^= buffer[i];
+        }
+
+        buffer[29] = 0x00;
+        for (int i = 0; i < HID_BUF_LEN_WRITE; i++)
+        {
+            buffer[29] ^= buffer[i];
+        }
+        //switch (MyCOMDevice.PcvrComSt) {
+        //case PcvrComState.TanKeFangXiangZhenDong:
+        //{
+        //	#if !COM_TANK_TEST
+        //	for (int i = 5; i < HID_BUF_LEN_WRITE - 2; i++) {
+        //		buffer[i] = (byte)(UnityEngine.Random.Range(0, 10000) % 256);
+        //	}
+
+        //	if (IsSubPlayerCoin) {
+        //		buffer[2] = 0xaa;
+        //		buffer[3] = (byte)subCoinNum12;
+        //		//buffer[4] = (byte)subCoinNum34;
+        //		//ScreenLog.Log("sub coinP12 "+subCoinNum12.ToString("X2")+", coinP34 "+subCoinNum34.ToString("X2"));
+        //	}
+
+        //	switch (StartLightStateP1) {
+        //	case LedState.Liang:
+        //		buffer[5] |= 0x01;
+        //		break;
+
+        //	case LedState.Shan:
+        //		buffer[5] |= 0x01;
+        //		break;
+
+        //	case LedState.Mie:
+        //		buffer[5] &= 0xfe;
+        //		break;
+        //	}
+
+        //	switch (StartLightStateP2) {
+        //	case LedState.Liang:
+        //		buffer[5] |= 0x02;
+        //		break;
+
+        //	case LedState.Shan:
+        //		buffer[5] |= 0x02;
+        //		break;
+
+        //	case LedState.Mie:
+        //		buffer[5] &= 0xfd;
+        //		break;
+        //	}
+        //	buffer[5] &= 0xe3; //close led3-5.
+
+        //	if (DongGanState == 1 || HardwareCheckCtrl.IsTestHardWare) {
+        //		buffer[6] = (byte)(QiNangArray[0]
+        //		                   + (QiNangArray[1] << 1)
+        //		                   + (QiNangArray[2] << 2)
+        //		                   + (QiNangArray[3] << 3)
+        //		                   + (QiNangArray[4] << 4)
+        //		                   + (QiNangArray[5] << 5)
+        //		                   + (QiNangArray[6] << 6)
+        //		                   + (QiNangArray[7] << 7));
+        //	}
+        //	else {
+        //		buffer[6] = 0x00;
+
+        //		if (RunZuoYiState[0] == 0x00) {
+        //			SetRunZuoYiState(PlayerEnum.PlayerOne, 1);
+        //		}
+
+        //		if (RunZuoYiState[1] == 0x00) {
+        //			SetRunZuoYiState(PlayerEnum.PlayerTwo, 1);
+        //		}
+        //	}
+
+        //	if (IsJiaoYanHid) {
+        //		for (int i = 0; i < 4; i++) {
+        //			buffer[i + 21] = JiaoYanMiMa[i];
+        //		}
+
+        //		for (int i = 0; i < 4; i++) {
+        //			buffer[i + 25] = JiaoYanDt[i];
+        //		}
+        //	}
+        //	else {
+        //		RandomJiaoYanMiMaVal();
+        //		for (int i = 0; i < 4; i++) {
+        //			buffer[i + 21] = JiaoYanMiMaRand[i];
+        //		}
+
+        //		//0x41 0x42 0x43 0x44
+        //		for (int i = 26; i < 29; i++) {
+        //			buffer[i] = (byte)UnityEngine.Random.Range(0x00, 0x40);
+        //		}
+        //		buffer[25] = 0x00;
+
+        //		for (int i = 26; i < 29; i++) {
+        //			buffer[25] ^= buffer[i];
+        //		}
+        //	}
+
+        //	if (!HardwareCheckCtrl.IsTestHardWare) {
+        //		if (SetPanelUiRoot.IsOpenSetPanel) {
+        //			buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
+        //			buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
+        //		}
+        //		else {
+        //			if (IsCloseGunZhenDong) {
+        //				buffer[8] = 0x00;
+        //				buffer[9] = 0x00;
+        //			}
+        //			else {
+        //				float timeDisVal = TimeDisJiQiangZiDan;
+        //				float timeActiveDisVal = TimeDisJiHuoGunDouDong;
+        //				if (XkGameCtrl.IsActivePlayerOne) {
+        //					if (XkGameCtrl.GaoBaoDanNumPOne > 0) {
+        //						timeDisVal = TimeDisGaoBaoDan;
+        //					}
+
+        //					if (Time.realtimeSinceStartup - LastFireTimeArray[0] < timeDisVal) {
+        //						LastFireActiveTimeArray[0] = Time.realtimeSinceStartup;
+        //						buffer[8] = 0x00;
+        //					}
+        //					else {
+        //						if (Time.realtimeSinceStartup - LastFireActiveTimeArray[0] >= timeActiveDisVal) {
+        //							LastFireTimeArray[0] = Time.realtimeSinceStartup;
+        //						}
+        //						buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
+        //					}
+        //				}
+        //				else {
+        //					buffer[8] = 0x00;
+        //				}
+
+        //				if (XkGameCtrl.IsActivePlayerTwo) {
+        //					timeDisVal = TimeDisJiQiangZiDan;
+        //					if (XkGameCtrl.GaoBaoDanNumPTwo > 0) {
+        //						timeDisVal = TimeDisGaoBaoDan;
+        //					}
+
+        //					if (Time.realtimeSinceStartup - LastFireTimeArray[1] < timeDisVal) {
+        //						LastFireActiveTimeArray[1] = Time.realtimeSinceStartup;
+        //						buffer[9] = 0x00;
+        //					}
+        //					else {
+        //						if (Time.realtimeSinceStartup - LastFireActiveTimeArray[1] >= timeActiveDisVal) {
+        //							LastFireTimeArray[1] = Time.realtimeSinceStartup;
+        //						}
+        //						buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
+        //					}
+        //				}
+        //				else {
+        //					buffer[9] = 0x00;
+        //				}
+        //			}
+        //		}
+        //	}
+        //	else {
+        //		buffer[8] = (byte)QiangZhenDongP1;
+        //		buffer[9] = (byte)QiangZhenDongP2;
+        //	}
+
+        //	if (HardwareCheckCtrl.IsTestHardWare) {
+        //		buffer[10] = (byte)QiangZhenDongP1;
+        //		buffer[11] = (byte)QiangZhenDongP2;
+        //	}
+        //	else {
+        //		buffer[10] = 0x00;
+        //		buffer[11] = 0x00;
+        //	}
+
+        //	if (JiFenJieMianCtrl.GetInstance() != null && JiFenJieMianCtrl.GetInstance().GetIsShowFinishTask()) {
+        //		buffer[12] = 0x00;
+        //		buffer[13] = 0x00;
+        //		buffer[14] = 0x00;
+        //		buffer[15] = 0x00;
+        //	}
+        //	else {
+        //		if (!HardwareCheckCtrl.IsTestHardWare) {
+        //			buffer[12] = XkGameCtrl.IsActivePlayerOne == true ? ZuoYiDianJiSpeedVal[0] : (byte)0x00;
+        //			buffer[13] = XkGameCtrl.IsActivePlayerTwo == true ? ZuoYiDianJiSpeedVal[1] : (byte)0x00;
+        //			buffer[14] = XkGameCtrl.IsActivePlayerThree == true ? ZuoYiDianJiSpeedVal[2] : (byte)0x00;
+        //			buffer[15] = XkGameCtrl.IsActivePlayerFour == true ? ZuoYiDianJiSpeedVal[3] : (byte)0x00;
+        //		}
+        //		else {
+        //			buffer[12] = ZuoYiDianJiSpeedVal[0];
+        //			buffer[13] = ZuoYiDianJiSpeedVal[1];
+        //			buffer[14] = ZuoYiDianJiSpeedVal[2];
+        //			buffer[15] = ZuoYiDianJiSpeedVal[3];
+        //		}
+        //	}
+
+        //	if (!IsRecordTimeFangXiangPan) {
+        //		IsRecordTimeFangXiangPan = true;
+        //		TimeFangXiangPan = Time.realtimeSinceStartup;
+        //		buffer[16] = 0xaa;
+        //		buffer[17] = 0xaa;
+        //	}
+        //	else {
+        //		if (Time.realtimeSinceStartup - TimeFangXiangPan < 60f) {
+        //			buffer[16] = 0xaa;
+        //			buffer[17] = 0xaa;
+        //		}
+        //		else {
+        //			if (HardwareCheckCtrl.IsTestHardWare) {
+        //				buffer[16] = FangXiangPanDouDongVal[0];
+        //				buffer[17] = FangXiangPanDouDongVal[1];
+        //			}
+        //			else {
+        //				buffer[16] = XkGameCtrl.IsActivePlayerOne == true ? FangXiangPanDouDongVal[0] : (byte)0x00;
+        //				buffer[17] = XkGameCtrl.IsActivePlayerTwo == true ? FangXiangPanDouDongVal[1] : (byte)0x00;
+        //			}
+        //		}
+        //	}
+        //	buffer[18] = 0x00;
+        //	buffer[19] = 0x00;
+        //	buffer[20] = 0x00;
+        //	for (int i = 2; i <= 11; i++) {
+        //		buffer[20] ^= buffer[i];
+        //	}
+
+        //	buffer[29] = 0x00;
+        //	for (int i = 0; i < HID_BUF_LEN_WRITE; i++) {
+        //		if (i == 29) {
+        //			continue;
+        //		}
+        //		buffer[29] ^= buffer[i];
+        //	}
+        //	#endif
+        //}
+        //break;
+        //case PcvrComState.TanKeGunZhenDong:
+        //{
+        //	#if COM_TANK_TEST || COM_FEIJI_TX
+        //	for (int i = 4; i < HID_BUF_LEN_WRITE - 2; i++) {
+        //		buffer[i] = (byte)(UnityEngine.Random.Range(0, 10000) % 256);
+        //	}
+
+        //	if (IsSubPlayerCoin) {
+        //		buffer[2] = 0xaa;
+        //		buffer[3] = (byte)subCoinNum12;
+        //	}
+
+        //	switch (StartLightStateP1) {
+        //	case LedState.Liang:
+        //		buffer[4] |= 0x01;
+        //		break;
+
+        //	case LedState.Shan:
+        //		buffer[4] |= 0x01;
+        //		break;
+
+        //	case LedState.Mie:
+        //		buffer[4] &= 0xfe;
+        //		break;
+        //	}
+
+        //	switch (StartLightStateP2) {
+        //	case LedState.Liang:
+        //		buffer[4] |= 0x02;
+        //		break;
+
+        //	case LedState.Shan:
+        //		buffer[4] |= 0x02;
+        //		break;
+
+        //	case LedState.Mie:
+        //		buffer[4] &= 0xfd;
+        //		break;
+        //	}
+
+        //	if (DongGanState == 1 || HardwareCheckCtrl.IsTestHardWare) {
+        //		buffer[5] = (byte)(QiNangArray[0]
+        //		                   + (QiNangArray[1] << 1)
+        //		                   + (QiNangArray[2] << 2)
+        //		                   + (QiNangArray[3] << 3)
+        //		                   + (QiNangArray[4] << 4)
+        //		                   + (QiNangArray[5] << 5)
+        //		                   + (QiNangArray[6] << 6)
+        //		                   + (QiNangArray[7] << 7));
+        //	}
+        //	else {
+        //		buffer[5] = 0x00;
+
+        //		if (RunZuoYiState[0] == 0x00) {
+        //			SetRunZuoYiState(PlayerEnum.PlayerOne, 1);
+        //		}
+
+        //		if (RunZuoYiState[1] == 0x00) {
+        //			SetRunZuoYiState(PlayerEnum.PlayerTwo, 1);
+        //		}
+        //	}
+
+        //	if (IsJiaoYanHid) {
+        //		for (int i = 0; i < 4; i++) {
+        //			buffer[i + 10] = JiaoYanMiMa[i];
+        //		}
+
+        //		for (int i = 0; i < 4; i++) {
+        //			buffer[i + 14] = JiaoYanDt[i];
+        //		}
+        //	}
+        //	else {
+        //		RandomJiaoYanMiMaVal();
+        //		for (int i = 0; i < 4; i++) {
+        //			buffer[i + 10] = JiaoYanMiMaRand[i];
+        //		}
+
+        //		//0x41 0x42 0x43 0x44
+        //		for (int i = 15; i < 18; i++) {
+        //			buffer[i] = (byte)UnityEngine.Random.Range(0x00, 0x40);
+        //		}
+        //		buffer[14] = 0x00;
+
+        //		for (int i = 15; i < 18; i++) {
+        //			buffer[14] ^= buffer[i];
+        //		}
+        //	}
+
+        //	if (!HardwareCheckCtrl.IsTestHardWare) {
+        //		if (SetPanelUiRoot.IsOpenSetPanel) {
+        //			buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
+        //			buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
+        //		}
+        //		else {
+        //			if (IsCloseGunZhenDong) {
+        //				buffer[8] = 0x00;
+        //				buffer[9] = 0x00;
+        //			}
+        //			else {
+        //				float timeDisVal = TimeDisJiQiangZiDan;
+        //				float timeActiveDisVal = TimeDisJiHuoGunDouDong;
+        //				if (XkGameCtrl.IsActivePlayerOne) {
+        //					if (XkGameCtrl.GaoBaoDanNumPOne > 0) {
+        //						timeDisVal = TimeDisGaoBaoDan;
+        //					}
+
+        //					if (Time.realtimeSinceStartup - LastFireTimeArray[0] < timeDisVal) {
+        //						LastFireActiveTimeArray[0] = Time.realtimeSinceStartup;
+        //						buffer[8] = 0x00;
+        //					}
+        //					else {
+        //						if (Time.realtimeSinceStartup - LastFireActiveTimeArray[0] >= timeActiveDisVal) {
+        //							LastFireTimeArray[0] = Time.realtimeSinceStartup;
+        //						}
+        //						buffer[8] = GetPlayerGunZhenDongVal(QiangZhenDongP1);
+        //					}
+        //				}
+        //				else {
+        //					buffer[8] = 0x00;
+        //				}
+
+        //				if (XkGameCtrl.IsActivePlayerTwo) {
+        //					timeDisVal = TimeDisJiQiangZiDan;
+        //					if (XkGameCtrl.GaoBaoDanNumPTwo > 0) {
+        //						timeDisVal = TimeDisGaoBaoDan;
+        //					}
+
+        //					if (Time.realtimeSinceStartup - LastFireTimeArray[1] < timeDisVal) {
+        //						LastFireActiveTimeArray[1] = Time.realtimeSinceStartup;
+        //						buffer[9] = 0x00;
+        //					}
+        //					else {
+        //						if (Time.realtimeSinceStartup - LastFireActiveTimeArray[1] >= timeActiveDisVal) {
+        //							LastFireTimeArray[1] = Time.realtimeSinceStartup;
+        //						}
+        //						buffer[9] = GetPlayerGunZhenDongVal(QiangZhenDongP2);
+        //					}
+        //				}
+        //				else {
+        //					buffer[9] = 0x00;
+        //				}
+        //			}
+        //		}
+        //	}
+        //	else {
+        //		buffer[8] = (byte)QiangZhenDongP1;
+        //		buffer[9] = (byte)QiangZhenDongP2;
+        //	}
+
+        //	buffer[6] = 0x00;
+        //	for (int i = 2; i <= 11; i++) {
+        //		if (i == 6) {
+        //			continue;
+        //		}
+        //		buffer[6] ^= buffer[i];
+        //	}
+
+        //	buffer[19] = 0x00;
+        //	for (int i = 0; i < HID_BUF_LEN_WRITE; i++) {
+        //		if (i == 19) {
+        //			continue;
+        //		}
+        //		buffer[19] ^= buffer[i];
+        //	}
+        //	#endif
+        //}
+        //break;
+        //}
+        MyCOMDevice.ComThreadClass.WriteByteMsg = buffer;
 	}
 	public static float TimeFangXiangPan;
 	bool IsRecordTimeFangXiangPan;
@@ -1544,700 +1865,1345 @@ QiNangArray[0]            QiNangArray[1]
 			return;
 		}
 
-		switch (MyCOMDevice.PcvrComSt) {
-		case PcvrComState.TanKeFangXiangZhenDong:
-		{
-			#if !COM_TANK_TEST
-			if ((MyCOMDevice.ComThreadClass.ReadByteMsg[34]&0x01) == 0x01) {
-				JiOuJiaoYanCount++;
-				if (JiOuJiaoYanCount >= JiOuJiaoYanMax && !IsJiOuJiaoYanFailed) {
-					IsJiOuJiaoYanFailed = true;
-					//JiOuJiaoYanFailed
-				}
-			}
-			//IsJiOuJiaoYanFailed = true; //test
-			byte tmpVal = 0x00;
-			string testA = "";
-			for (int i = 0; i < (MyCOMDevice.ComThreadClass.BufLenRead - 4); i++) {
-				if (i == 18 || i == 19 || i == 33) {
-					continue;
-				}
-				testA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-				tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-			}
-			tmpVal ^= EndRead_1;
-			tmpVal ^= EndRead_2;
-			tmpVal ^= EndRead_3;
-			tmpVal ^= EndRead_4;
-			testA += EndRead_1 + " ";
-			testA += EndRead_2 + " ";
-			testA += EndRead_3 + " ";
-			testA += EndRead_4 + " ";
-			
-			if (tmpVal != MyCOMDevice.ComThreadClass.ReadByteMsg[33]) {
-				if (MyCOMDevice.ComThreadClass.IsStopComTX) {
-					return;
-				}
-				MyCOMDevice.ComThreadClass.IsStopComTX = true;
-				ScreenLog.Log("testA: "+testA);
-				ScreenLog.LogError("tmpVal: "+tmpVal.ToString("X2")+", byte[33] "+MyCOMDevice.ComThreadClass.ReadByteMsg[33].ToString("X2"));
-				ScreenLog.Log("byte[33] was wrong!");
-				return;
-			}
-			
-			if (IsJiaoYanHid) {
-				tmpVal = 0x00;
-				//string testStrA = MyCOMDevice.ComThreadClass.ReadByteMsg[30].ToString("X2") + " ";
-				string testStrB = "";
-				string testStrA = "";
-				//			for (int i = 0; i < MyCOMDevice.ComThreadClass.ReadByteMsg.Length; i++) {
-				//				testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-				//			}
-				//			ScreenLog.Log("readStr: "+testStrA);
-				
-				//			for (int i = 0; i < JiaoYanDt.Length; i++) {
-				//				testStrB += JiaoYanDt[i].ToString("X2") + " ";
-				//			}
-				//			ScreenLog.Log("GameSendDt: "+testStrB);
-				
-				//			string testStrC = "";
-				//			for (int i = 0; i < JiaoYanDt.Length; i++) {
-				//				testStrC += JiaoYanMiMa[i].ToString("X2") + " ";
-				//			}
-				//			ScreenLog.Log("GameSendMiMa: "+testStrC);
-				
-				for (int i = 26; i < 29; i++) {
-					tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-					testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-				}
-				
-				if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[25]) {
-					bool isJiaoYanDtSucceed = false;
-					tmpVal = 0x00;
-					for (int i = 30; i < 33; i++) {
-						tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-					}
-					
-					//校验2...
-					if ( tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[29]
-					    && (JiaoYanDt[1]&0xef) == MyCOMDevice.ComThreadClass.ReadByteMsg[30]
-					    && (JiaoYanDt[2]&0xfe) == MyCOMDevice.ComThreadClass.ReadByteMsg[31]
-					    && (JiaoYanDt[3]|0x28) == MyCOMDevice.ComThreadClass.ReadByteMsg[32] ) {
-						isJiaoYanDtSucceed = true;
-					}
-					
-					JiaoYanCheckCount++;
-					if (isJiaoYanDtSucceed) {
-						//JiaMiJiaoYanSucceed
-						OnEndJiaoYanIO(JIAOYANENUM.SUCCEED);
-						//ScreenLog.Log("JMJYCG...");
-					}
-					else {
-						if (JiaoYanCheckCount > 0) {
-							OnEndJiaoYanIO(JIAOYANENUM.FAILED);
-						}
-						testStrA = "";
-						for (int i = 0; i < 35; i++) {
-							testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-						}
-						
-						testStrB = "";
-						for (int i = 29; i < 33; i++) {
-							testStrB += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-						}
-						
-						string testStrD = "";
-						for (int i = 0; i < 4; i++) {
-							testStrD += JiaoYanDt[i].ToString("X2") + " ";
-						}
-						ScreenLog.Log("JiaoYan2 ShiBai...");
-						ScreenLog.Log("ReadByte[0 - 35] "+testStrA);
-						ScreenLog.Log("ReadByte[29 - 32] "+testStrB);
-						ScreenLog.Log("SendByte[25 - 28] "+testStrD);
-						ScreenLog.LogError("校验数据错误!");
-					}
-				}
-				else {
-					ScreenLog.Log("JiaoYan1 ShiBai...");
-					testStrB = "byte[25] "+MyCOMDevice.ComThreadClass.ReadByteMsg[25].ToString("X2")+" "
-						+", tmpVal "+tmpVal.ToString("X2");
-					ScreenLog.Log("ReadByte[25 - 28] "+testStrA);
-					ScreenLog.Log(testStrB);
-					ScreenLog.LogError("ReadByte[25] was wrong!");
-				}
-			}
-			#endif
-		}
-		break;
+        if (MyCOMDevice.ComThreadClass.ReadByteMsg[0] != HeadRead_1 ||
+            MyCOMDevice.ComThreadClass.ReadByteMsg[1] != HeadRead_2)
+        {
+            Debug.Log("Unity: -> readMsg head is wrong!");
+            return;
+        }
+        //if ((MyCOMDevice.ComThreadClass.ReadByteMsg[34] & 0x01) == 0x01)
+        //{
+        //    JiOuJiaoYanCount++;
+        //    if (JiOuJiaoYanCount >= JiOuJiaoYanMax && !IsJiOuJiaoYanFailed)
+        //    {
+        //        IsJiOuJiaoYanFailed = true;
+        //        Debug.Log("Unity: -> JiOuJiaoYanFailed");
+        //        return;
+        //    }
+        //}
+        //IsJiOuJiaoYanFailed = true; //test
+        byte tmpVal = 0x00;
+        string testA = "";
+        for (int i = 0; i < (MyCOMDevice.ComThreadClass.BufLenRead - 4); i++)
+        {
+            if (i == 18 || i == 19 || i == 33)
+            {
+                continue;
+            }
+            testA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+            tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        }
+        tmpVal ^= EndRead_1;
+        tmpVal ^= EndRead_2;
+        tmpVal ^= EndRead_3;
+        tmpVal ^= EndRead_4;
+        testA += EndRead_1 + " ";
+        testA += EndRead_2 + " ";
+        testA += EndRead_3 + " ";
+        testA += EndRead_4 + " ";
 
-		case PcvrComState.TanKeGunZhenDong:
-		{
-			#if COM_TANK_TEST || COM_FEIJI_TX
-			if ((MyCOMDevice.ComThreadClass.ReadByteMsg[22]&0x01) == 0x01) {
-				JiOuJiaoYanCount++;
-				if (JiOuJiaoYanCount >= JiOuJiaoYanMax && !IsJiOuJiaoYanFailed) {
-					IsJiOuJiaoYanFailed = true;
-					//JiOuJiaoYanFailed
-				}
-			}
-			//IsJiOuJiaoYanFailed = true; //test
+        //if (tmpVal != MyCOMDevice.ComThreadClass.ReadByteMsg[33])
+        //{
+        //    if (MyCOMDevice.ComThreadClass.IsStopComTX)
+        //    {
+        //        return;
+        //    }
+        //    MyCOMDevice.ComThreadClass.IsStopComTX = true;
+        //    ScreenLog.Log("testA: " + testA);
+        //    ScreenLog.LogError("tmpVal: " + tmpVal.ToString("X2") + ", byte[33] " + MyCOMDevice.ComThreadClass.ReadByteMsg[33].ToString("X2"));
+        //    ScreenLog.Log("byte[33] was wrong!");
+        //    return;
+        //}
 
-			byte tmpVal = 0x00;
-			string testA = "";
-			for (int i = 2; i < (MyCOMDevice.ComThreadClass.BufLenRead - 4); i++) {
-				if (i == 18 || i == 21) {
-					continue;
-				}
-				testA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-				tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-			}
-			tmpVal ^= EndRead_1;
-			tmpVal ^= EndRead_2;
-			testA += EndRead_1 + " ";
-			testA += EndRead_2 + " ";
-			testA += EndRead_3 + " ";
-			testA += EndRead_4 + " ";
-			
-			if (tmpVal != MyCOMDevice.ComThreadClass.ReadByteMsg[21]) {
-				if (MyCOMDevice.ComThreadClass.IsStopComTX) {
-					return;
-				}
-				MyCOMDevice.ComThreadClass.IsStopComTX = true;
-	//			ScreenLog.Log("testA: "+testA);
-	//			ScreenLog.LogError("tmpVal: "+tmpVal.ToString("X2")+", byte[21] "+MyCOMDevice.ComThreadClass.ReadByteMsg[21].ToString("X2"));
-	//			ScreenLog.Log("byte21 was wrong!");
-				return;
-			}
-			
-			if (IsJiaoYanHid) {
-				tmpVal = 0x00;
-				//string testStrA = MyCOMDevice.ComThreadClass.ReadByteMsg[30].ToString("X2") + " ";
-				//			string testStrB = "";
-				//			string testStrA = "";
-				//			for (int i = 0; i < MyCOMDevice.ComThreadClass.ReadByteMsg.Length; i++) {
-				//				testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-				//			}
-				//			ScreenLog.Log("readStr: "+testStrA);
-				//
-				//			for (int i = 0; i < JiaoYanDt.Length; i++) {
-				//				testStrB += JiaoYanDt[i].ToString("X2") + " ";
-				//			}
-				//			ScreenLog.Log("GameSendDt: "+testStrB);
-				//
-				//			string testStrC = "";
-				//			for (int i = 0; i < JiaoYanDt.Length; i++) {
-				//				testStrC += JiaoYanMiMa[i].ToString("X2") + " ";
-				//			}
-				//			ScreenLog.Log("GameSendMiMa: "+testStrC);
-				
-				for (int i = 11; i < 14; i++) {
-					tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-					//testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-				}
-				
-				if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[10]) {
-					bool isJiaoYanDtSucceed = false;
-					tmpVal = 0x00;
-					for (int i = 15; i < 18; i++) {
-						tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-					}
-					
-					//Ð£Ñé2...
-					if ( tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[14]
-					    && (JiaoYanDt[1]&0xef) == MyCOMDevice.ComThreadClass.ReadByteMsg[15]
-					    && (JiaoYanDt[2]&0xfe) == MyCOMDevice.ComThreadClass.ReadByteMsg[16]
-					    && (JiaoYanDt[3]|0x28) == MyCOMDevice.ComThreadClass.ReadByteMsg[17] ) {
-						isJiaoYanDtSucceed = true;
-					}
-					
-					JiaoYanCheckCount++;
-					if (isJiaoYanDtSucceed) {
-						//JiaMiJiaoYanSucceed
-						OnEndJiaoYanIO(JIAOYANENUM.SUCCEED);
-						//ScreenLog.Log("JMJYCG...");
-					}
-					else {
-						if (JiaoYanCheckCount > 0) {
-							OnEndJiaoYanIO(JIAOYANENUM.FAILED);
-						}
-	//					testStrA = "";
-	//					for (int i = 0; i < 23; i++) {
-	//						testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-	//					}
-	//
-	//					testStrB = "";
-	//					for (int i = 14; i < 18; i++) {
-	//						testStrB += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-	//					}
-	//					
-	//					string testStrD = "";
-	//					for (int i = 0; i < 4; i++) {
-	//						testStrD += JiaoYanDt[i].ToString("X2") + " ";
-	//					}
-	//					ScreenLog.Log("ReadByte[0 - 22] "+testStrA);
-	//					ScreenLog.Log("ReadByte[14 - 17] "+testStrB);
-	//					ScreenLog.Log("SendByte[14 - 17] "+testStrD);
-	//					ScreenLog.LogError("Ð£ÑéÊý¾Ý´íÎó!");
-					}
-				}
-	//			else {
-	//				testStrB = "byte[10] "+MyCOMDevice.ComThreadClass.ReadByteMsg[10].ToString("X2")+" "
-	//					+", tmpVal "+tmpVal.ToString("X2");
-	//				ScreenLog.Log("ReadByte[10 - 13] "+testStrA);
-	//				ScreenLog.Log(testStrB);
-	//				ScreenLog.LogError("ReadByte[10] was wrong!");
-	//			}
-			}
-			#endif
-		}
-		break;
-		}
-		
-		int len = MyCOMDevice.ComThreadClass.ReadByteMsg.Length;
-		uint[] readMsg = new uint[len];
-		for (int i = 0; i < len; i++) {
-			readMsg[i] = MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-		}
-		keyProcess(readMsg);
+        if (IsJiaoYanHid)
+        {
+            tmpVal = 0x00;
+            //string testStrA = MyCOMDevice.ComThreadClass.ReadByteMsg[30].ToString("X2") + " ";
+            string testStrB = "";
+            string testStrA = "";
+            //for (int i = 0; i < MyCOMDevice.ComThreadClass.ReadByteMsg.Length; i++)
+            //{
+            //    testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+            //}
+            //ScreenLog.Log("readStr: " + testStrA);
+
+            //for (int i = 0; i < JiaoYanDt.Length; i++)
+            //{
+            //    testStrB += JiaoYanDt[i].ToString("X2") + " ";
+            //}
+            //ScreenLog.Log("GameSendDt: " + testStrB);
+
+            //string testStrC = "";
+            //for (int i = 0; i < JiaoYanDt.Length; i++)
+            //{
+            //    testStrC += JiaoYanMiMa[i].ToString("X2") + " ";
+            //}
+            //ScreenLog.Log("GameSendMiMa: " + testStrC);
+
+            for (int i = 26; i < 29; i++)
+            {
+                tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+                testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+            }
+
+            if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[25])
+            {
+                bool isJiaoYanDtSucceed = false;
+                tmpVal = 0x00;
+                for (int i = 30; i < 33; i++)
+                {
+                    tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+                }
+
+                //校验2...
+                if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[29]
+                    && (JiaoYanDt[1] & 0xef) == MyCOMDevice.ComThreadClass.ReadByteMsg[30]
+                    && (JiaoYanDt[2] & 0xfe) == MyCOMDevice.ComThreadClass.ReadByteMsg[31]
+                    && (JiaoYanDt[3] | 0x28) == MyCOMDevice.ComThreadClass.ReadByteMsg[32])
+                {
+                    isJiaoYanDtSucceed = true;
+                }
+
+                JiaoYanCheckCount++;
+                if (isJiaoYanDtSucceed)
+                {
+                    //JiaMiJiaoYanSucceed
+                    OnEndJiaoYanIO(JIAOYANENUM.SUCCEED);
+                    //ScreenLog.Log("JMJYCG...");
+                }
+                else
+                {
+                    if (JiaoYanCheckCount > 0)
+                    {
+                        OnEndJiaoYanIO(JIAOYANENUM.FAILED);
+                    }
+                    testStrA = "";
+                    for (int i = 0; i < 35; i++)
+                    {
+                        testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+                    }
+
+                    testStrB = "";
+                    for (int i = 29; i < 33; i++)
+                    {
+                        testStrB += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+                    }
+
+                    string testStrD = "";
+                    for (int i = 0; i < 4; i++)
+                    {
+                        testStrD += JiaoYanDt[i].ToString("X2") + " ";
+                    }
+                    ScreenLog.Log("JiaoYan2 ShiBai...");
+                    ScreenLog.Log("ReadByte[0 - 35] " + testStrA);
+                    ScreenLog.Log("ReadByte[29 - 32] " + testStrB);
+                    ScreenLog.Log("SendByte[25 - 28] " + testStrD);
+                    ScreenLog.LogError("校验数据错误!");
+                }
+            }
+            else
+            {
+                ScreenLog.Log("JiaoYan1 ShiBai...");
+                testStrB = "byte[25] " + MyCOMDevice.ComThreadClass.ReadByteMsg[25].ToString("X2") + " "
+                    + ", tmpVal " + tmpVal.ToString("X2");
+                ScreenLog.Log("ReadByte[25 - 28] " + testStrA);
+                ScreenLog.Log(testStrB);
+                ScreenLog.LogError("ReadByte[25] was wrong!");
+            }
+        }
+
+        //	switch (MyCOMDevice.PcvrComSt) {
+        //	case PcvrComState.TanKeFangXiangZhenDong:
+        //	{
+        //		#if !COM_TANK_TEST
+        //		if ((MyCOMDevice.ComThreadClass.ReadByteMsg[34]&0x01) == 0x01) {
+        //			JiOuJiaoYanCount++;
+        //			if (JiOuJiaoYanCount >= JiOuJiaoYanMax && !IsJiOuJiaoYanFailed) {
+        //				IsJiOuJiaoYanFailed = true;
+        //				//JiOuJiaoYanFailed
+        //			}
+        //		}
+        //		//IsJiOuJiaoYanFailed = true; //test
+        //		byte tmpVal = 0x00;
+        //		string testA = "";
+        //		for (int i = 0; i < (MyCOMDevice.ComThreadClass.BufLenRead - 4); i++) {
+        //			if (i == 18 || i == 19 || i == 33) {
+        //				continue;
+        //			}
+        //			testA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //			tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //		}
+        //		tmpVal ^= EndRead_1;
+        //		tmpVal ^= EndRead_2;
+        //		tmpVal ^= EndRead_3;
+        //		tmpVal ^= EndRead_4;
+        //		testA += EndRead_1 + " ";
+        //		testA += EndRead_2 + " ";
+        //		testA += EndRead_3 + " ";
+        //		testA += EndRead_4 + " ";
+
+        //		if (tmpVal != MyCOMDevice.ComThreadClass.ReadByteMsg[33]) {
+        //			if (MyCOMDevice.ComThreadClass.IsStopComTX) {
+        //				return;
+        //			}
+        //			MyCOMDevice.ComThreadClass.IsStopComTX = true;
+        //			ScreenLog.Log("testA: "+testA);
+        //			ScreenLog.LogError("tmpVal: "+tmpVal.ToString("X2")+", byte[33] "+MyCOMDevice.ComThreadClass.ReadByteMsg[33].ToString("X2"));
+        //			ScreenLog.Log("byte[33] was wrong!");
+        //			return;
+        //		}
+
+        //		if (IsJiaoYanHid) {
+        //			tmpVal = 0x00;
+        //			//string testStrA = MyCOMDevice.ComThreadClass.ReadByteMsg[30].ToString("X2") + " ";
+        //			string testStrB = "";
+        //			string testStrA = "";
+        //			//			for (int i = 0; i < MyCOMDevice.ComThreadClass.ReadByteMsg.Length; i++) {
+        //			//				testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //			//			}
+        //			//			ScreenLog.Log("readStr: "+testStrA);
+
+        //			//			for (int i = 0; i < JiaoYanDt.Length; i++) {
+        //			//				testStrB += JiaoYanDt[i].ToString("X2") + " ";
+        //			//			}
+        //			//			ScreenLog.Log("GameSendDt: "+testStrB);
+
+        //			//			string testStrC = "";
+        //			//			for (int i = 0; i < JiaoYanDt.Length; i++) {
+        //			//				testStrC += JiaoYanMiMa[i].ToString("X2") + " ";
+        //			//			}
+        //			//			ScreenLog.Log("GameSendMiMa: "+testStrC);
+
+        //			for (int i = 26; i < 29; i++) {
+        //				tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //				testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //			}
+
+        //			if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[25]) {
+        //				bool isJiaoYanDtSucceed = false;
+        //				tmpVal = 0x00;
+        //				for (int i = 30; i < 33; i++) {
+        //					tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //				}
+
+        //				//校验2...
+        //				if ( tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[29]
+        //				    && (JiaoYanDt[1]&0xef) == MyCOMDevice.ComThreadClass.ReadByteMsg[30]
+        //				    && (JiaoYanDt[2]&0xfe) == MyCOMDevice.ComThreadClass.ReadByteMsg[31]
+        //				    && (JiaoYanDt[3]|0x28) == MyCOMDevice.ComThreadClass.ReadByteMsg[32] ) {
+        //					isJiaoYanDtSucceed = true;
+        //				}
+
+        //				JiaoYanCheckCount++;
+        //				if (isJiaoYanDtSucceed) {
+        //					//JiaMiJiaoYanSucceed
+        //					OnEndJiaoYanIO(JIAOYANENUM.SUCCEED);
+        //					//ScreenLog.Log("JMJYCG...");
+        //				}
+        //				else {
+        //					if (JiaoYanCheckCount > 0) {
+        //						OnEndJiaoYanIO(JIAOYANENUM.FAILED);
+        //					}
+        //					testStrA = "";
+        //					for (int i = 0; i < 35; i++) {
+        //						testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //					}
+
+        //					testStrB = "";
+        //					for (int i = 29; i < 33; i++) {
+        //						testStrB += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //					}
+
+        //					string testStrD = "";
+        //					for (int i = 0; i < 4; i++) {
+        //						testStrD += JiaoYanDt[i].ToString("X2") + " ";
+        //					}
+        //					ScreenLog.Log("JiaoYan2 ShiBai...");
+        //					ScreenLog.Log("ReadByte[0 - 35] "+testStrA);
+        //					ScreenLog.Log("ReadByte[29 - 32] "+testStrB);
+        //					ScreenLog.Log("SendByte[25 - 28] "+testStrD);
+        //					ScreenLog.LogError("校验数据错误!");
+        //				}
+        //			}
+        //			else {
+        //				ScreenLog.Log("JiaoYan1 ShiBai...");
+        //				testStrB = "byte[25] "+MyCOMDevice.ComThreadClass.ReadByteMsg[25].ToString("X2")+" "
+        //					+", tmpVal "+tmpVal.ToString("X2");
+        //				ScreenLog.Log("ReadByte[25 - 28] "+testStrA);
+        //				ScreenLog.Log(testStrB);
+        //				ScreenLog.LogError("ReadByte[25] was wrong!");
+        //			}
+        //		}
+        //		#endif
+        //	}
+        //	break;
+
+        //	case PcvrComState.TanKeGunZhenDong:
+        //	{
+        //		#if COM_TANK_TEST || COM_FEIJI_TX
+        //		if ((MyCOMDevice.ComThreadClass.ReadByteMsg[22]&0x01) == 0x01) {
+        //			JiOuJiaoYanCount++;
+        //			if (JiOuJiaoYanCount >= JiOuJiaoYanMax && !IsJiOuJiaoYanFailed) {
+        //				IsJiOuJiaoYanFailed = true;
+        //				//JiOuJiaoYanFailed
+        //			}
+        //		}
+        //		//IsJiOuJiaoYanFailed = true; //test
+
+        //		byte tmpVal = 0x00;
+        //		string testA = "";
+        //		for (int i = 2; i < (MyCOMDevice.ComThreadClass.BufLenRead - 4); i++) {
+        //			if (i == 18 || i == 21) {
+        //				continue;
+        //			}
+        //			testA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //			tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //		}
+        //		tmpVal ^= EndRead_1;
+        //		tmpVal ^= EndRead_2;
+        //		testA += EndRead_1 + " ";
+        //		testA += EndRead_2 + " ";
+        //		testA += EndRead_3 + " ";
+        //		testA += EndRead_4 + " ";
+
+        //		if (tmpVal != MyCOMDevice.ComThreadClass.ReadByteMsg[21]) {
+        //			if (MyCOMDevice.ComThreadClass.IsStopComTX) {
+        //				return;
+        //			}
+        //			MyCOMDevice.ComThreadClass.IsStopComTX = true;
+        ////			ScreenLog.Log("testA: "+testA);
+        ////			ScreenLog.LogError("tmpVal: "+tmpVal.ToString("X2")+", byte[21] "+MyCOMDevice.ComThreadClass.ReadByteMsg[21].ToString("X2"));
+        ////			ScreenLog.Log("byte21 was wrong!");
+        //			return;
+        //		}
+
+        //		if (IsJiaoYanHid) {
+        //			tmpVal = 0x00;
+        //			//string testStrA = MyCOMDevice.ComThreadClass.ReadByteMsg[30].ToString("X2") + " ";
+        //			//			string testStrB = "";
+        //			//			string testStrA = "";
+        //			//			for (int i = 0; i < MyCOMDevice.ComThreadClass.ReadByteMsg.Length; i++) {
+        //			//				testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //			//			}
+        //			//			ScreenLog.Log("readStr: "+testStrA);
+        //			//
+        //			//			for (int i = 0; i < JiaoYanDt.Length; i++) {
+        //			//				testStrB += JiaoYanDt[i].ToString("X2") + " ";
+        //			//			}
+        //			//			ScreenLog.Log("GameSendDt: "+testStrB);
+        //			//
+        //			//			string testStrC = "";
+        //			//			for (int i = 0; i < JiaoYanDt.Length; i++) {
+        //			//				testStrC += JiaoYanMiMa[i].ToString("X2") + " ";
+        //			//			}
+        //			//			ScreenLog.Log("GameSendMiMa: "+testStrC);
+
+        //			for (int i = 11; i < 14; i++) {
+        //				tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //				//testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //			}
+
+        //			if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[10]) {
+        //				bool isJiaoYanDtSucceed = false;
+        //				tmpVal = 0x00;
+        //				for (int i = 15; i < 18; i++) {
+        //					tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //				}
+
+        //				//Ð£Ñé2...
+        //				if ( tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[14]
+        //				    && (JiaoYanDt[1]&0xef) == MyCOMDevice.ComThreadClass.ReadByteMsg[15]
+        //				    && (JiaoYanDt[2]&0xfe) == MyCOMDevice.ComThreadClass.ReadByteMsg[16]
+        //				    && (JiaoYanDt[3]|0x28) == MyCOMDevice.ComThreadClass.ReadByteMsg[17] ) {
+        //					isJiaoYanDtSucceed = true;
+        //				}
+
+        //				JiaoYanCheckCount++;
+        //				if (isJiaoYanDtSucceed) {
+        //					//JiaMiJiaoYanSucceed
+        //					OnEndJiaoYanIO(JIAOYANENUM.SUCCEED);
+        //					//ScreenLog.Log("JMJYCG...");
+        //				}
+        //				else {
+        //					if (JiaoYanCheckCount > 0) {
+        //						OnEndJiaoYanIO(JIAOYANENUM.FAILED);
+        //					}
+        ////					testStrA = "";
+        ////					for (int i = 0; i < 23; i++) {
+        ////						testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        ////					}
+        ////
+        ////					testStrB = "";
+        ////					for (int i = 14; i < 18; i++) {
+        ////						testStrB += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        ////					}
+        ////					
+        ////					string testStrD = "";
+        ////					for (int i = 0; i < 4; i++) {
+        ////						testStrD += JiaoYanDt[i].ToString("X2") + " ";
+        ////					}
+        ////					ScreenLog.Log("ReadByte[0 - 22] "+testStrA);
+        ////					ScreenLog.Log("ReadByte[14 - 17] "+testStrB);
+        ////					ScreenLog.Log("SendByte[14 - 17] "+testStrD);
+        ////					ScreenLog.LogError("Ð£ÑéÊý¾Ý´íÎó!");
+        //				}
+        //			}
+        ////			else {
+        ////				testStrB = "byte[10] "+MyCOMDevice.ComThreadClass.ReadByteMsg[10].ToString("X2")+" "
+        ////					+", tmpVal "+tmpVal.ToString("X2");
+        ////				ScreenLog.Log("ReadByte[10 - 13] "+testStrA);
+        ////				ScreenLog.Log(testStrB);
+        ////				ScreenLog.LogError("ReadByte[10] was wrong!");
+        ////			}
+        //		}
+        //		#endif
+        //	}
+        //	break;
+        //	}
+
+        //int len = MyCOMDevice.ComThreadClass.ReadByteMsg.Length;
+		//uint[] readMsg = new uint[len];
+		//for (int i = 0; i < len; i++) {
+		//	readMsg[i] = MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+		//}
+		keyProcess(MyCOMDevice.ComThreadClass.ReadByteMsg);
 	}
 	
 	public static byte DongGanState = 0;
-	void keyProcess(uint []buffer)
-	{
-		switch (MyCOMDevice.PcvrComSt) {
-		case PcvrComState.TanKeFangXiangZhenDong:
-		{
-			#if !COM_TANK_TEST
-			MousePositionP1.x = ((buffer[2] & 0x0f) << 8) + buffer[3];
-			MousePositionP1.y = ((buffer[4] & 0x0f) << 8) + buffer[5];
-			MousePositionP2.x = ((buffer[6] & 0x0f) << 8) + buffer[7];
-			MousePositionP2.y = ((buffer[8] & 0x0f) << 8) + buffer[9];                                                           
-			
-			//game coinInfo
-			CoinCurPcvr12 = buffer[18];
-			uint coinP1 = CoinCurPcvr12 & 0x0f;
-			uint coinP2 = (CoinCurPcvr12 & 0xf0) >> 4;
-			//		CoinCurPcvr34 = buffer[19];
-			//		uint coinP3 = CoinCurPcvr34 & 0x0f;
-			//		uint coinP4 = (CoinCurPcvr34 & 0xf0) >> 4;
-			//coinP2 = coinP1; //test
-			if (IsSubPlayerCoin) {
-				if (coinP1 == 0 && IsSubCoinP1) {
-					IsSubCoinP1 = false;
-					IsSubPlayerCoin = false;
-					subCoinNum12 = 0;
-				}
-				
-				if (coinP2 == 0 && IsSubCoinP2) {
-					IsSubCoinP2 = false;
-					IsSubPlayerCoin = false;
-					subCoinNum12 = 0;
-				}
-				
-	//			if (coinP3 == 0 && IsSubCoinP3) {
-	//				ScreenLog.Log("sub coinP3 "+coinP3);
-	//				IsSubCoinP3 = false;
-	//				IsSubPlayerCoin = false;
-	//				subCoinNum34 = 0;
-	//			}
-	//			
-	//			if (coinP4 == 0 && IsSubCoinP4) {
-	//				IsSubCoinP4 = false;
-	//				IsSubPlayerCoin = false;
-	//				subCoinNum34 = 0;
-	//			}
-			}
-			else {
-				if (coinP1 > 0 && coinP1 < 256) {
-					IsSubCoinP1 = true;
-					CoinNumCurrentP1 += (int)coinP1;
-					XKGlobalData.SetCoinPlayerOne(CoinNumCurrentP1);
-					SubPcvrCoin(PlayerEnum.PlayerOne, (int)(CoinCurPcvr12 & 0x0f));
-				}
-				
-				if (coinP2 > 0 && coinP2 < 256) {
-					IsSubCoinP2 = true;
-					CoinNumCurrentP2 += (int)coinP2;
-					XKGlobalData.SetCoinPlayerTwo(CoinNumCurrentP2);
-					SubPcvrCoin(PlayerEnum.PlayerTwo, (int)(CoinCurPcvr12 & 0xf0));
-				}
-				
-//				if (coinP3 > 0 && coinP3 < 256) {
-//					ScreenLog.Log("coinP3 "+coinP3);
-//					IsSubCoinP3 = true;
-//					CoinNumCurrentP3 += (int)coinP3;
-//					XKGlobalData.SetCoinPlayerThree(CoinNumCurrentP3);
-//					SubPcvrCoin(PlayerEnum.PlayerTwo, (int)(CoinCurPcvr34 & 0x0f));
-//				}
-//				
-//				if (coinP4 > 0 && coinP4 < 256) {
-//					IsSubCoinP4 = true;
-//					CoinNumCurrentP4 += (int)coinP4;
-//					XKGlobalData.SetCoinPlayerFour(CoinNumCurrentP4);
-//					SubPcvrCoin(PlayerEnum.PlayerFour, (int)(CoinCurPcvr34 & 0xf0));
-//				}
-			}
-			
-			//test
-			//buffer[23] = (byte)(UnityEngine.Random.Range(0, 100) % 16);
-			//buffer[24] = (byte)(UnityEngine.Random.Range(0, 100) % 16);
-			if ((buffer[23]&0x01) == 0x01 && ZuoYiTrigger[0] == 0) {
-				ZuoYiTrigger[0] = 1;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 1, ButtonState.DOWN);
-			}
-			else if ((buffer[23]&0x01) == 0x00 && ZuoYiTrigger[0] == 1) {
-				ZuoYiTrigger[0] = 0;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 1, ButtonState.UP);
-			}
-			
-			if ((buffer[23]&0x02) == 0x02 && ZuoYiTrigger[1] == 0) {
-				ZuoYiTrigger[1] = 1;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 0, ButtonState.DOWN);
-			}
-			else if ((buffer[23]&0x02) == 0x00 && ZuoYiTrigger[1] == 1) {
-				ZuoYiTrigger[1] = 0;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 0, ButtonState.UP);
-			}
-			
-			if ((buffer[23]&0x04) == 0x04 && ZuoYiTrigger[2] == 0) {
-				ZuoYiTrigger[2] = 1;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, -1, ButtonState.DOWN);
-			}
-			else if ((buffer[23]&0x04) == 0x00 && ZuoYiTrigger[2] == 1) {
-				ZuoYiTrigger[2] = 0;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, -1, ButtonState.UP);
-			}
-			
-			if ((buffer[23]&0x08) == 0x08 && ZuoYiTrigger[3] == 0) {
-				ZuoYiTrigger[3] = 1;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 1, ButtonState.DOWN);
-			}
-			else if ((buffer[23]&0x08) == 0x00 && ZuoYiTrigger[3] == 1) {
-				ZuoYiTrigger[3] = 0;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 1, ButtonState.UP);
-			}
-			
-			if ((buffer[23]&0x10) == 0x10 && ZuoYiTrigger[4] == 0) {
-				ZuoYiTrigger[4] = 1;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 0, ButtonState.DOWN);
-			}
-			else if ((buffer[23]&0x10) == 0x00 && ZuoYiTrigger[4] == 1) {
-				ZuoYiTrigger[4] = 0;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 0, ButtonState.UP);
-			}
-			
-			if ((buffer[23]&0x20) == 0x20 && ZuoYiTrigger[5] == 0) {
-				ZuoYiTrigger[5] = 1;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, -1, ButtonState.DOWN);
-			}
-			else if ((buffer[23]&0x20) == 0x00 && ZuoYiTrigger[5] == 1) {
-				ZuoYiTrigger[5] = 0;
-				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, -1, ButtonState.UP);
-			}
-			
-			//game startBt, hitNpcBt or jiaoZhunBt
-			if( !bPlayerStartKeyDownP1 && (buffer[20]&0x01) == 0x01 )
-			{
-				//ScreenLog.Log("gameP1 startBt down!");
-				bPlayerStartKeyDownP1 = true;
-				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.DOWN );
-			}
-			else if ( bPlayerStartKeyDownP1 && (buffer[20]&0x01) == 0x00 )
-			{
-				//ScreenLog.Log("gameP1 startBt up!");
-				bPlayerStartKeyDownP1 = false;
-				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.UP );
-			}
-			
-			if( !IsFireBtDownP1 && (buffer[20]&0x02) == 0x02 )
-			{
-				IsFireBtDownP1 = true;
-				InputEventCtrl.IsClickFireBtOneDown = true;
-				//ScreenLog.Log("game fireBtP1 down!");
-				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.DOWN );
-			}
-			else if( IsFireBtDownP1 && (buffer[20]&0x02) == 0x00 )
-			{
-				IsFireBtDownP1 = false;
-				InputEventCtrl.IsClickFireBtOneDown = false;
-				//ScreenLog.Log("game fireBtP1 up!");
-				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.UP );
-			}
-			
-			if( !IsDaoDanBtDownP1 && (buffer[20]&0x04) == 0x04 )
-			{
-				IsDaoDanBtDownP1 = true;
-				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.DOWN );
-			}
-			else if( IsDaoDanBtDownP1 && (buffer[20]&0x04) == 0x00 )
-			{
-				IsDaoDanBtDownP1 = false;
-				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.UP );
-			}
-			
-			//game startBt, hitNpcBt or jiaoZhunBt
-			if( !bPlayerStartKeyDownP2 && (buffer[20]&0x08) == 0x08 )
-			{
-				//ScreenLog.Log("gameP2 startBt down!");
-				bPlayerStartKeyDownP2 = true;
-				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.DOWN );
-			}
-			else if ( bPlayerStartKeyDownP2 && (buffer[20]&0x08) == 0x00 )
-			{
-				//ScreenLog.Log("gameP2 startBt up!");
-				bPlayerStartKeyDownP2 = false;
-				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.UP );
-			}
-			
-			if( !IsFireBtDownP2 && (buffer[20]&0x10) == 0x10 )
-			{
-				IsFireBtDownP2 = true;
-				InputEventCtrl.IsClickFireBtTwoDown = true;
-				//ScreenLog.Log("game fireBtP2 down!");
-				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.DOWN );
-			}
-			else if( IsFireBtDownP2 && (buffer[20]&0x10) == 0x00 )
-			{
-				IsFireBtDownP2 = false;
-				InputEventCtrl.IsClickFireBtTwoDown = false;
-				//ScreenLog.Log("game fireBtP2 up!");
-				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.UP );
-			}
-			
-			if( !IsDaoDanBtDownP2 && (buffer[20]&0x20) == 0x20 )
-			{
-				IsDaoDanBtDownP2 = true;
-				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.DOWN );
-			}
-			else if( IsDaoDanBtDownP2 && (buffer[20]&0x20) == 0x00 )
-			{
-				IsDaoDanBtDownP2 = false;
-				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.UP );
-			}
-			
-			//DongGanBt
-			if( !IsClickDongGanBtOne && (buffer[21]&0x10) == 0x10 )
-			{
-				IsClickDongGanBtOne = true;
-				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.DOWN );
-			}
-			else if ( IsClickDongGanBtOne && (buffer[21]&0x10) == 0x00 )
-			{
-				IsClickDongGanBtOne = false;
-				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.UP );
-			}
-			
-			//setPanel selectBt
-			if( !bSetEnterKeyDown && (buffer[21]&0x40) == 0x40 )
-			{
-				bSetEnterKeyDown = true;
-				//ScreenLog.Log("game setEnterBt down!");
-				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.DOWN );
-			}
-			else if ( bSetEnterKeyDown && (buffer[21]&0x40) == 0x00 )
-			{
-				bSetEnterKeyDown = false;
-				//ScreenLog.Log("game setEnterBt up!");
-				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.UP );
-			}
-			
-			//setPanel moveBt
-			if ( !bSetMoveKeyDown && (buffer[21]&0x80) == 0x80 )
-			{
-				bSetMoveKeyDown = true;
-				//ScreenLog.Log("game setMoveBt down!");
-				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.DOWN );
-				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.DOWN );
-			}
-			else if( bSetMoveKeyDown && (buffer[21]&0x80) == 0x00 )
-			{
-				bSetMoveKeyDown = false;
-				//ScreenLog.Log("game setMoveBt up!");
-				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.UP );
-				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.UP );
-			}
-			#endif
-		}
-		break;
+    /// <summary>
+    /// 轴的运行状态.
+    /// </summary>
+    public enum ZhouMoveEnum
+    {
+        ShunShiZhen = 0xaa, //顺时针运行中.
+        NiShiZhen = 0xbb, //逆时针运行中.
+        TingZhi = 0x55, //停止中.
+        WuYiYi = 0x00, //无意义.
+    }
+    /// <summary>
+    /// 轴的准备状态.
+    /// </summary>
+    public enum ZhouZhunBeiEnum
+    {
+        ZhunBeiHao = 0xaa, //准备好.
+        WeiJiuXu = 0x55, //未就绪.
+        WuYiYi = 0x00, //无意义.
+    }
+    /// <summary>
+    /// PC收到IO板上传的轴运行状态.
+    /// </summary>
+    public byte ZhouMoveStateA = 0x00;
+    public byte ZhouMoveStateB = 0x00;
+    public byte ZhouMoveStateC = 0x00;
+    public byte ZhouMoveStateD = 0x00;
+    /// <summary>
+    /// PC收到IO板上传的轴准备状态.
+    /// </summary>
+    public byte ZhouZhunBeiStateA = 0x00;
+    public byte ZhouZhunBeiStateB = 0x00;
+    public byte ZhouZhunBeiStateC = 0x00;
+    public byte ZhouZhunBeiStateD = 0x00;
+    /// <summary>
+    /// 轴传感器.
+    /// 轴传感器默认顺序从上到下.
+    /// </summary>
+    byte[] ZhouTrigger = new byte[8] {1, 1, 1, 1, 1, 1, 1, 1};
+    /// <summary>
+    /// 当电动缸的限位传感器触发时被回调.
+    /// </summary>
+    /// <param name="triggerIndex"></param>
+    /// <param name="btState"></param>
+    void OnClickZhouTrigger(byte triggerIndex, ButtonState btState)
+    {
+        Debug.Log("Unity: -> triggerIndex " + triggerIndex + ", btState " + btState);
+        if (IsJiaoZhunDianDongGang &&
+            !IsStartJiLuDianDongGangXingCheng &&
+            triggerIndex % 2 == 0)
+        {
+            CheckIsStartJiLuDianDongGangXingCheng();
+        }
+        if (IsJiaoZhunDianDongGang && IsStartJiLuDianDongGangXingCheng)
+        {
+            CheckIsEndDianDongGangJiaoZhun(true);
+        }
+        if (HardwareCheckCtrl.IsTestHardWare)
+        {
+            HardwareCheckCtrl.Instance.OnZhouTriggerActive(triggerIndex, btState);
+        }
+    }
+    /// <summary>
+    /// 当轴运行状态改变时回调此函数.
+    /// </summary>
+    void OnZhouMoveStateChange(byte indexVal, byte zhouState)
+    {
+        if (IsJiaoZhunDianDongGang && IsStartJiLuDianDongGangXingCheng &&
+            zhouState == (byte)ZhouMoveEnum.TingZhi)
+        {
+            JiLuDianDongGangXingCheng(indexVal);
+        }
+        switch (indexVal)
+        {
+            case 1:
+                {
+                    ZhouMoveStateA = zhouState;
+                    break;
+                }
+            case 2:
+                {
+                    ZhouMoveStateB = zhouState;
+                    break;
+                }
+            case 3:
+                {
+                    ZhouMoveStateC = zhouState;
+                    break;
+                }
+        }
+    }
+    void keyProcess(byte []buffer)
+    {
+        MousePositionP1.x = ((buffer[2] & 0x0f) << 8) + buffer[3];
+        MousePositionP1.y = ((buffer[4] & 0x0f) << 8) + buffer[5];
+        MousePositionP2.x = ((buffer[6] & 0x0f) << 8) + buffer[7];
+        MousePositionP2.y = ((buffer[8] & 0x0f) << 8) + buffer[9];
 
-		case PcvrComState.TanKeGunZhenDong:
-		{
-			#if COM_TANK_TEST || COM_FEIJI_TX
-			MousePositionP1.x = ((buffer[2] & 0x0f) << 8) + buffer[3];
-			MousePositionP1.y = ((buffer[4] & 0x0f) << 8) + buffer[5];
-			MousePositionP2.x = ((buffer[6] & 0x0f) << 8) + buffer[7];
-			MousePositionP2.y = ((buffer[8] & 0x0f) << 8) + buffer[9];                                                           
-			
-			//game coinInfo
-			CoinCurPcvr12 = buffer[18];
-			uint coinP1 = CoinCurPcvr12 & 0x0f;
-			uint coinP2 = (CoinCurPcvr12 & 0xf0) >> 4;//coinP2 = coinP1; //test
-			if (IsSubPlayerCoin) {
-				if (coinP1 == 0 && IsSubCoinP1) {
-					IsSubCoinP1 = false;
-					IsSubPlayerCoin = false;
-					subCoinNum12 = 0;
-				}
+        //game coinInfo
+        CoinCurPcvr12 = buffer[18];
+        uint coinP1 = CoinCurPcvr12 & 0x0f;
+        uint coinP2 = (CoinCurPcvr12 & 0xf0) >> 4;
+        //CoinCurPcvr34 = buffer[19];
+        //uint coinP3 = CoinCurPcvr34 & 0x0f;
+        //uint coinP4 = (CoinCurPcvr34 & 0xf0) >> 4;
+        //coinP2 = coinP1; //test
+        if (IsSubPlayerCoin)
+        {
+            if (coinP1 == 0 && IsSubCoinP1)
+            {
+                IsSubCoinP1 = false;
+                IsSubPlayerCoin = false;
+                subCoinNum12 = 0;
+            }
 
-				if (coinP2 == 0 && IsSubCoinP2) {
-					IsSubCoinP2 = false;
-					IsSubPlayerCoin = false;
-					subCoinNum12 = 0;
-				}
-			}
-			else {
-				if (coinP1 > 0 && coinP1 < 256) {
-					IsSubCoinP1 = true;
-					CoinNumCurrentP1 += (int)coinP1;
-					XKGlobalData.SetCoinPlayerOne(CoinNumCurrentP1);
-					SubPcvrCoin(PlayerEnum.PlayerOne, (int)(CoinCurPcvr12 & 0x0f));
-				}
-				
-				if (coinP2 > 0 && coinP2 < 256) {
-					IsSubCoinP2 = true;
-					CoinNumCurrentP2 += (int)coinP2;
-					XKGlobalData.SetCoinPlayerTwo(CoinNumCurrentP2);
-					SubPcvrCoin(PlayerEnum.PlayerTwo, (int)(CoinCurPcvr12 & 0xf0));
-				}
-			}
-			
-			//game startBt, hitNpcBt or jiaoZhunBt
-			if( !bPlayerStartKeyDownP1 && (buffer[19]&0x04) == 0x04 )
-			{
-				//ScreenLog.Log("gameP1 startBt down!");
-				bPlayerStartKeyDownP1 = true;
-				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.DOWN );
-			}
-			else if ( bPlayerStartKeyDownP1 && (buffer[19]&0x04) == 0x00 )
-			{
-				//ScreenLog.Log("gameP1 startBt up!");
-				bPlayerStartKeyDownP1 = false;
-				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.UP );
-			}
-			
-			//game startBt, hitNpcBt or jiaoZhunBt
-			if( !bPlayerStartKeyDownP2 && (buffer[19]&0x08) == 0x08 )
-			{
-				//ScreenLog.Log("gameP2 startBt down!");
-				bPlayerStartKeyDownP2 = true;
-				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.DOWN );
-			}
-			else if ( bPlayerStartKeyDownP2 && (buffer[19]&0x08) == 0x00 )
-			{
-				//ScreenLog.Log("gameP2 startBt up!");
-				bPlayerStartKeyDownP2 = false;
-				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.UP );
-			}
-			
-			//DongGanBt
-			if( !IsClickDongGanBtOne && (buffer[19]&0x10) == 0x10 )
-			{
-				IsClickDongGanBtOne = true;
-				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.DOWN );
-			}
-			else if ( IsClickDongGanBtOne && (buffer[19]&0x10) == 0x00 )
-			{
-				IsClickDongGanBtOne = false;
-				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.UP );
-			}
-			
-			if( !IsFireBtDownP1 && (buffer[19]&0x40) == 0x40 )
-			{
-				IsFireBtDownP1 = true;
-				InputEventCtrl.IsClickFireBtOneDown = true;
-				//ScreenLog.Log("game fireBtP1 down!");
-				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.DOWN );
-			}
-			else if( IsFireBtDownP1 && (buffer[19]&0x40) == 0x00 )
-			{
-				IsFireBtDownP1 = false;
-				InputEventCtrl.IsClickFireBtOneDown = false;
-				//ScreenLog.Log("game fireBtP1 up!");
-				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.UP );
-			}
-			
-			if( !IsDaoDanBtDownP1 && (buffer[19]&0x80) == 0x80 )
-			{
-				IsDaoDanBtDownP1 = true;
-				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.DOWN );
-			}
-			else if( IsDaoDanBtDownP1 && (buffer[19]&0x80) == 0x00 )
-			{
-				IsDaoDanBtDownP1 = false;
-				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.UP );
-			}
-			
-			if( !IsFireBtDownP2 && (buffer[20]&0x01) == 0x01 )
-			{
-				IsFireBtDownP2 = true;
-				InputEventCtrl.IsClickFireBtTwoDown = true;
-				//ScreenLog.Log("game fireBtP2 down!");
-				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.DOWN );
-			}
-			else if( IsFireBtDownP2 && (buffer[20]&0x01) == 0x00 )
-			{
-				IsFireBtDownP2 = false;
-				InputEventCtrl.IsClickFireBtTwoDown = false;
-				//ScreenLog.Log("game fireBtP2 up!");
-				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.UP );
-			}
-			
-			if( !IsDaoDanBtDownP2 && (buffer[20]&0x02) == 0x02 )
-			{
-				IsDaoDanBtDownP2 = true;
-				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.DOWN );
-			}
-			else if( IsDaoDanBtDownP2 && (buffer[20]&0x02) == 0x00 )
-			{
-				IsDaoDanBtDownP2 = false;
-				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.UP );
-			}
-			
-			//setPanel selectBt
-			if( !bSetEnterKeyDown && (buffer[19]&0x01) == 0x01 )
-			{
-				bSetEnterKeyDown = true;
-				//ScreenLog.Log("game setEnterBt down!");
-				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.DOWN );
-			}
-			else if ( bSetEnterKeyDown && (buffer[19]&0x01) == 0x00 )
-			{
-				bSetEnterKeyDown = false;
-				//ScreenLog.Log("game setEnterBt up!");
-				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.UP );
-			}
-			
-			//setPanel moveBt
-			if ( !bSetMoveKeyDown && (buffer[19]&0x02) == 0x02 )
-			{
-				bSetMoveKeyDown = true;
-				//ScreenLog.Log("game setMoveBt down!");
-				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.DOWN );
-				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.DOWN );
-			}
-			else if( bSetMoveKeyDown && (buffer[19]&0x02) == 0x00 )
-			{
-				bSetMoveKeyDown = false;
-				//ScreenLog.Log("game setMoveBt up!");
-				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.UP );
-				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.UP );
-			}
-			#endif
-		}
-		break;
-		}
-	}
-	
-//	void ResetIsTouBiBtDown()
-//	{
-//		if(!bIsTouBiBtDown)
-//		{
-//			return;
-//		}
-//		bIsTouBiBtDown = false;
-//	}
-	
-	static void SubTaBanCountInfo()
+            if (coinP2 == 0 && IsSubCoinP2)
+            {
+                IsSubCoinP2 = false;
+                IsSubPlayerCoin = false;
+                subCoinNum12 = 0;
+            }
+
+            //if (coinP3 == 0 && IsSubCoinP3)
+            //{
+            //    ScreenLog.Log("sub coinP3 " + coinP3);
+            //    IsSubCoinP3 = false;
+            //    IsSubPlayerCoin = false;
+            //    subCoinNum34 = 0;
+            //}
+
+            //if (coinP4 == 0 && IsSubCoinP4)
+            //{
+            //    IsSubCoinP4 = false;
+            //    IsSubPlayerCoin = false;
+            //    subCoinNum34 = 0;
+            //}
+        }
+        else
+        {
+            if (coinP1 > 0 && coinP1 < 256)
+            {
+                IsSubCoinP1 = true;
+                CoinNumCurrentP1 += (int)coinP1;
+                XKGlobalData.SetCoinPlayerOne(CoinNumCurrentP1);
+                SubPcvrCoin(PlayerEnum.PlayerOne, (int)coinP1);
+            }
+
+            if (coinP2 > 0 && coinP2 < 256)
+            {
+                IsSubCoinP2 = true;
+                CoinNumCurrentP2 += (int)coinP2;
+                XKGlobalData.SetCoinPlayerTwo(CoinNumCurrentP2);
+                SubPcvrCoin(PlayerEnum.PlayerTwo, (int)coinP2);
+            }
+
+            //if (coinP3 > 0 && coinP3 < 256)
+            //{
+            //    ScreenLog.Log("coinP3 " + coinP3);
+            //    IsSubCoinP3 = true;
+            //    CoinNumCurrentP3 += (int)coinP3;
+            //    XKGlobalData.SetCoinPlayerThree(CoinNumCurrentP3);
+            //    SubPcvrCoin(PlayerEnum.PlayerTwo, (int)(CoinCurPcvr34 & 0x0f));
+            //}
+
+            //if (coinP4 > 0 && coinP4 < 256)
+            //{
+            //    IsSubCoinP4 = true;
+            //    CoinNumCurrentP4 += (int)coinP4;
+            //    XKGlobalData.SetCoinPlayerFour(CoinNumCurrentP4);
+            //    SubPcvrCoin(PlayerEnum.PlayerFour, (int)(CoinCurPcvr34 & 0xf0));
+            //}
+        }
+
+        //game startBt, hitNpcBt or jiaoZhunBt
+        if (!bPlayerStartKeyDownP1 && (buffer[20] & 0x01) == 0x01)
+        {
+            //ScreenLog.Log("gameP1 startBt down!");
+            bPlayerStartKeyDownP1 = true;
+            InputEventCtrl.GetInstance().ClickStartBtOne(ButtonState.DOWN);
+        }
+        else if (bPlayerStartKeyDownP1 && (buffer[20] & 0x01) == 0x00)
+        {
+            //ScreenLog.Log("gameP1 startBt up!");
+            bPlayerStartKeyDownP1 = false;
+            InputEventCtrl.GetInstance().ClickStartBtOne(ButtonState.UP);
+        }
+
+        if (!IsFireBtDownP1 && (buffer[20] & 0x02) == 0x02)
+        {
+            IsFireBtDownP1 = true;
+            InputEventCtrl.IsClickFireBtOneDown = true;
+            //ScreenLog.Log("game fireBtP1 down!");
+            InputEventCtrl.GetInstance().ClickFireBtOne(ButtonState.DOWN);
+        }
+        else if (IsFireBtDownP1 && (buffer[20] & 0x02) == 0x00)
+        {
+            IsFireBtDownP1 = false;
+            InputEventCtrl.IsClickFireBtOneDown = false;
+            //ScreenLog.Log("game fireBtP1 up!");
+            InputEventCtrl.GetInstance().ClickFireBtOne(ButtonState.UP);
+        }
+
+        if (!IsDaoDanBtDownP1 && (buffer[20] & 0x04) == 0x04)
+        {
+            IsDaoDanBtDownP1 = true;
+            InputEventCtrl.GetInstance().ClickDaoDanBtOne(ButtonState.DOWN);
+        }
+        else if (IsDaoDanBtDownP1 && (buffer[20] & 0x04) == 0x00)
+        {
+            IsDaoDanBtDownP1 = false;
+            InputEventCtrl.GetInstance().ClickDaoDanBtOne(ButtonState.UP);
+        }
+
+        //game startBt, hitNpcBt or jiaoZhunBt
+        if (!bPlayerStartKeyDownP2 && (buffer[20] & 0x08) == 0x08)
+        {
+            //ScreenLog.Log("gameP2 startBt down!");
+            bPlayerStartKeyDownP2 = true;
+            InputEventCtrl.GetInstance().ClickStartBtTwo(ButtonState.DOWN);
+        }
+        else if (bPlayerStartKeyDownP2 && (buffer[20] & 0x08) == 0x00)
+        {
+            //ScreenLog.Log("gameP2 startBt up!");
+            bPlayerStartKeyDownP2 = false;
+            InputEventCtrl.GetInstance().ClickStartBtTwo(ButtonState.UP);
+        }
+
+        if (!IsFireBtDownP2 && (buffer[20] & 0x10) == 0x10)
+        {
+            IsFireBtDownP2 = true;
+            InputEventCtrl.IsClickFireBtTwoDown = true;
+            //ScreenLog.Log("game fireBtP2 down!");
+            InputEventCtrl.GetInstance().ClickFireBtTwo(ButtonState.DOWN);
+        }
+        else if (IsFireBtDownP2 && (buffer[20] & 0x10) == 0x00)
+        {
+            IsFireBtDownP2 = false;
+            InputEventCtrl.IsClickFireBtTwoDown = false;
+            //ScreenLog.Log("game fireBtP2 up!");
+            InputEventCtrl.GetInstance().ClickFireBtTwo(ButtonState.UP);
+        }
+
+        if (!IsDaoDanBtDownP2 && (buffer[20] & 0x20) == 0x20)
+        {
+            IsDaoDanBtDownP2 = true;
+            InputEventCtrl.GetInstance().ClickDaoDanBtTwo(ButtonState.DOWN);
+        }
+        else if (IsDaoDanBtDownP2 && (buffer[20] & 0x20) == 0x00)
+        {
+            IsDaoDanBtDownP2 = false;
+            InputEventCtrl.GetInstance().ClickDaoDanBtTwo(ButtonState.UP);
+        }
+
+        //DongGanBt
+        if (!IsClickDongGanBtOne && (buffer[21] & 0x10) == 0x10)
+        {
+            IsClickDongGanBtOne = true;
+            InputEventCtrl.GetInstance().ClickStopDongGanBtOne(ButtonState.DOWN);
+        }
+        else if (IsClickDongGanBtOne && (buffer[21] & 0x10) == 0x00)
+        {
+            IsClickDongGanBtOne = false;
+            InputEventCtrl.GetInstance().ClickStopDongGanBtOne(ButtonState.UP);
+        }
+
+        //setPanel selectBt
+        if (!bSetEnterKeyDown && (buffer[21] & 0x40) == 0x40)
+        {
+            bSetEnterKeyDown = true;
+            //ScreenLog.Log("game setEnterBt down!");
+            InputEventCtrl.GetInstance().ClickSetEnterBt(ButtonState.DOWN);
+        }
+        else if (bSetEnterKeyDown && (buffer[21] & 0x40) == 0x00)
+        {
+            bSetEnterKeyDown = false;
+            //ScreenLog.Log("game setEnterBt up!");
+            InputEventCtrl.GetInstance().ClickSetEnterBt(ButtonState.UP);
+        }
+
+        //setPanel moveBt
+        if (!bSetMoveKeyDown && (buffer[21] & 0x80) == 0x80)
+        {
+            bSetMoveKeyDown = true;
+            //ScreenLog.Log("game setMoveBt down!");
+            InputEventCtrl.GetInstance().ClickSetMoveBt(ButtonState.DOWN);
+        }
+        else if (bSetMoveKeyDown && (buffer[21] & 0x80) == 0x00)
+        {
+            bSetMoveKeyDown = false;
+            //ScreenLog.Log("game setMoveBt up!");
+            InputEventCtrl.GetInstance().ClickSetMoveBt(ButtonState.UP);
+        }
+
+        if (ZhouMoveStateA != buffer[35])
+        {
+            ZhouMoveStateA = buffer[35];
+            if (HardwareCheckCtrl.IsTestHardWare)
+            {
+                HardwareCheckCtrl.Instance.SetZhouYunXingState(ZhouMoveStateA, 0);
+            }
+        }
+        if (ZhouMoveStateB != buffer[36])
+        {
+            ZhouMoveStateB = buffer[36];
+            if (HardwareCheckCtrl.IsTestHardWare)
+            {
+                HardwareCheckCtrl.Instance.SetZhouYunXingState(ZhouMoveStateB, 1);
+            }
+        }
+        if (ZhouMoveStateC != buffer[37])
+        {
+            ZhouMoveStateC = buffer[37];
+            if (HardwareCheckCtrl.IsTestHardWare)
+            {
+                HardwareCheckCtrl.Instance.SetZhouYunXingState(ZhouMoveStateC, 2);
+            }
+        }
+
+        if (ZhouZhunBeiStateA != buffer[38])
+        {
+            ZhouZhunBeiStateA = buffer[38];
+            if (HardwareCheckCtrl.IsTestHardWare)
+            {
+                HardwareCheckCtrl.Instance.SetZhouZhunBeiState(ZhouMoveStateA, 0);
+            }
+        }
+        if (ZhouZhunBeiStateB != buffer[39])
+        {
+            ZhouZhunBeiStateB = buffer[39];
+            if (HardwareCheckCtrl.IsTestHardWare)
+            {
+                HardwareCheckCtrl.Instance.SetZhouZhunBeiState(ZhouMoveStateB, 1);
+            }
+        }
+        if (ZhouZhunBeiStateC != buffer[40])
+        {
+            ZhouZhunBeiStateC = buffer[40];
+            if (HardwareCheckCtrl.IsTestHardWare)
+            {
+                HardwareCheckCtrl.Instance.SetZhouZhunBeiState(ZhouMoveStateC, 2);
+            }
+        }
+
+        if ((buffer[41] & 0x01) == 0x01 && ZhouTrigger[0] == 0)
+        {
+            ZhouTrigger[0] = 1;
+            OnClickZhouTrigger(0, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x01) == 0x00 && ZhouTrigger[0] == 1)
+        {
+            ZhouTrigger[0] = 0;
+            OnClickZhouTrigger(0, ButtonState.UP);
+        }
+
+        if ((buffer[41] & 0x02) == 0x02 && ZhouTrigger[1] == 0)
+        {
+            ZhouTrigger[1] = 1;
+            OnClickZhouTrigger(1, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x02) == 0x00 && ZhouTrigger[1] == 1)
+        {
+            ZhouTrigger[1] = 0;
+            OnClickZhouTrigger(1, ButtonState.UP);
+        }
+
+        if ((buffer[41] & 0x04) == 0x04 && ZhouTrigger[2] == 0)
+        {
+            ZhouTrigger[2] = 1;
+            OnClickZhouTrigger(2, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x04) == 0x00 && ZhouTrigger[2] == 1)
+        {
+            ZhouTrigger[2] = 0;
+            OnClickZhouTrigger(2, ButtonState.UP);
+        }
+
+        if ((buffer[41] & 0x08) == 0x08 && ZhouTrigger[3] == 0)
+        {
+            ZhouTrigger[3] = 1;
+            OnClickZhouTrigger(3, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x08) == 0x00 && ZhouTrigger[3] == 1)
+        {
+            ZhouTrigger[3] = 0;
+            OnClickZhouTrigger(3, ButtonState.UP);
+        }
+
+        if ((buffer[41] & 0x10) == 0x10 && ZhouTrigger[4] == 0)
+        {
+            ZhouTrigger[4] = 1;
+            OnClickZhouTrigger(4, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x10) == 0x00 && ZhouTrigger[4] == 1)
+        {
+            ZhouTrigger[4] = 0;
+            OnClickZhouTrigger(4, ButtonState.UP);
+        }
+
+        if ((buffer[41] & 0x20) == 0x20 && ZhouTrigger[5] == 0)
+        {
+            ZhouTrigger[5] = 1;
+            OnClickZhouTrigger(5, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x20) == 0x00 && ZhouTrigger[5] == 1)
+        {
+            ZhouTrigger[5] = 0;
+            OnClickZhouTrigger(5, ButtonState.UP);
+        }
+
+        if ((buffer[41] & 0x40) == 0x40 && ZhouTrigger[6] == 0)
+        {
+            ZhouTrigger[6] = 1;
+            OnClickZhouTrigger(6, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x40) == 0x00 && ZhouTrigger[6] == 1)
+        {
+            ZhouTrigger[6] = 0;
+            OnClickZhouTrigger(6, ButtonState.UP);
+        }
+
+        if ((buffer[41] & 0x80) == 0x80 && ZhouTrigger[7] == 0)
+        {
+            ZhouTrigger[7] = 1;
+            OnClickZhouTrigger(7, ButtonState.DOWN);
+        }
+        else if ((buffer[41] & 0x80) == 0x00 && ZhouTrigger[7] == 1)
+        {
+            ZhouTrigger[7] = 0;
+            OnClickZhouTrigger(7, ButtonState.UP);
+        }
+
+        //test
+        //buffer[23] = (byte)(UnityEngine.Random.Range(0, 100) % 16);
+        //buffer[24] = (byte)(UnityEngine.Random.Range(0, 100) % 16);
+        //if ((buffer[23] & 0x01) == 0x01 && ZuoYiTrigger[0] == 0)
+        //{
+        //    ZuoYiTrigger[0] = 1;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 1, ButtonState.DOWN);
+        //}
+        //else if ((buffer[23] & 0x01) == 0x00 && ZuoYiTrigger[0] == 1)
+        //{
+        //    ZuoYiTrigger[0] = 0;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 1, ButtonState.UP);
+        //}
+
+        //if ((buffer[23] & 0x02) == 0x02 && ZuoYiTrigger[1] == 0)
+        //{
+        //    ZuoYiTrigger[1] = 1;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 0, ButtonState.DOWN);
+        //}
+        //else if ((buffer[23] & 0x02) == 0x00 && ZuoYiTrigger[1] == 1)
+        //{
+        //    ZuoYiTrigger[1] = 0;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 0, ButtonState.UP);
+        //}
+
+        //if ((buffer[23] & 0x04) == 0x04 && ZuoYiTrigger[2] == 0)
+        //{
+        //    ZuoYiTrigger[2] = 1;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, -1, ButtonState.DOWN);
+        //}
+        //else if ((buffer[23] & 0x04) == 0x00 && ZuoYiTrigger[2] == 1)
+        //{
+        //    ZuoYiTrigger[2] = 0;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, -1, ButtonState.UP);
+        //}
+
+        //if ((buffer[23] & 0x08) == 0x08 && ZuoYiTrigger[3] == 0)
+        //{
+        //    ZuoYiTrigger[3] = 1;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 1, ButtonState.DOWN);
+        //}
+        //else if ((buffer[23] & 0x08) == 0x00 && ZuoYiTrigger[3] == 1)
+        //{
+        //    ZuoYiTrigger[3] = 0;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 1, ButtonState.UP);
+        //}
+
+        //if ((buffer[23] & 0x10) == 0x10 && ZuoYiTrigger[4] == 0)
+        //{
+        //    ZuoYiTrigger[4] = 1;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 0, ButtonState.DOWN);
+        //}
+        //else if ((buffer[23] & 0x10) == 0x00 && ZuoYiTrigger[4] == 1)
+        //{
+        //    ZuoYiTrigger[4] = 0;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 0, ButtonState.UP);
+        //}
+
+        //if ((buffer[23] & 0x20) == 0x20 && ZuoYiTrigger[5] == 0)
+        //{
+        //    ZuoYiTrigger[5] = 1;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, -1, ButtonState.DOWN);
+        //}
+        //else if ((buffer[23] & 0x20) == 0x00 && ZuoYiTrigger[5] == 1)
+        //{
+        //    ZuoYiTrigger[5] = 0;
+        //    OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, -1, ButtonState.UP);
+        //}
+
+
+        //		switch (MyCOMDevice.PcvrComSt) {
+        //		case PcvrComState.TanKeFangXiangZhenDong:
+        //		{
+        //			#if !COM_TANK_TEST
+        //			MousePositionP1.x = ((buffer[2] & 0x0f) << 8) + buffer[3];
+        //			MousePositionP1.y = ((buffer[4] & 0x0f) << 8) + buffer[5];
+        //			MousePositionP2.x = ((buffer[6] & 0x0f) << 8) + buffer[7];
+        //			MousePositionP2.y = ((buffer[8] & 0x0f) << 8) + buffer[9];                                                           
+
+        //			//game coinInfo
+        //			CoinCurPcvr12 = buffer[18];
+        //			uint coinP1 = CoinCurPcvr12 & 0x0f;
+        //			uint coinP2 = (CoinCurPcvr12 & 0xf0) >> 4;
+        //			//		CoinCurPcvr34 = buffer[19];
+        //			//		uint coinP3 = CoinCurPcvr34 & 0x0f;
+        //			//		uint coinP4 = (CoinCurPcvr34 & 0xf0) >> 4;
+        //			//coinP2 = coinP1; //test
+        //			if (IsSubPlayerCoin) {
+        //				if (coinP1 == 0 && IsSubCoinP1) {
+        //					IsSubCoinP1 = false;
+        //					IsSubPlayerCoin = false;
+        //					subCoinNum12 = 0;
+        //				}
+
+        //				if (coinP2 == 0 && IsSubCoinP2) {
+        //					IsSubCoinP2 = false;
+        //					IsSubPlayerCoin = false;
+        //					subCoinNum12 = 0;
+        //				}
+
+        //	//			if (coinP3 == 0 && IsSubCoinP3) {
+        //	//				ScreenLog.Log("sub coinP3 "+coinP3);
+        //	//				IsSubCoinP3 = false;
+        //	//				IsSubPlayerCoin = false;
+        //	//				subCoinNum34 = 0;
+        //	//			}
+        //	//			
+        //	//			if (coinP4 == 0 && IsSubCoinP4) {
+        //	//				IsSubCoinP4 = false;
+        //	//				IsSubPlayerCoin = false;
+        //	//				subCoinNum34 = 0;
+        //	//			}
+        //			}
+        //			else {
+        //				if (coinP1 > 0 && coinP1 < 256) {
+        //					IsSubCoinP1 = true;
+        //					CoinNumCurrentP1 += (int)coinP1;
+        //					XKGlobalData.SetCoinPlayerOne(CoinNumCurrentP1);
+        //					SubPcvrCoin(PlayerEnum.PlayerOne, (int)(CoinCurPcvr12 & 0x0f));
+        //				}
+
+        //				if (coinP2 > 0 && coinP2 < 256) {
+        //					IsSubCoinP2 = true;
+        //					CoinNumCurrentP2 += (int)coinP2;
+        //					XKGlobalData.SetCoinPlayerTwo(CoinNumCurrentP2);
+        //					SubPcvrCoin(PlayerEnum.PlayerTwo, (int)(CoinCurPcvr12 & 0xf0));
+        //				}
+
+        ////				if (coinP3 > 0 && coinP3 < 256) {
+        ////					ScreenLog.Log("coinP3 "+coinP3);
+        ////					IsSubCoinP3 = true;
+        ////					CoinNumCurrentP3 += (int)coinP3;
+        ////					XKGlobalData.SetCoinPlayerThree(CoinNumCurrentP3);
+        ////					SubPcvrCoin(PlayerEnum.PlayerTwo, (int)(CoinCurPcvr34 & 0x0f));
+        ////				}
+        ////				
+        ////				if (coinP4 > 0 && coinP4 < 256) {
+        ////					IsSubCoinP4 = true;
+        ////					CoinNumCurrentP4 += (int)coinP4;
+        ////					XKGlobalData.SetCoinPlayerFour(CoinNumCurrentP4);
+        ////					SubPcvrCoin(PlayerEnum.PlayerFour, (int)(CoinCurPcvr34 & 0xf0));
+        ////				}
+        //			}
+
+        //			//test
+        //			//buffer[23] = (byte)(UnityEngine.Random.Range(0, 100) % 16);
+        //			//buffer[24] = (byte)(UnityEngine.Random.Range(0, 100) % 16);
+        //			if ((buffer[23]&0x01) == 0x01 && ZuoYiTrigger[0] == 0) {
+        //				ZuoYiTrigger[0] = 1;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 1, ButtonState.DOWN);
+        //			}
+        //			else if ((buffer[23]&0x01) == 0x00 && ZuoYiTrigger[0] == 1) {
+        //				ZuoYiTrigger[0] = 0;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 1, ButtonState.UP);
+        //			}
+
+        //			if ((buffer[23]&0x02) == 0x02 && ZuoYiTrigger[1] == 0) {
+        //				ZuoYiTrigger[1] = 1;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 0, ButtonState.DOWN);
+        //			}
+        //			else if ((buffer[23]&0x02) == 0x00 && ZuoYiTrigger[1] == 1) {
+        //				ZuoYiTrigger[1] = 0;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, 0, ButtonState.UP);
+        //			}
+
+        //			if ((buffer[23]&0x04) == 0x04 && ZuoYiTrigger[2] == 0) {
+        //				ZuoYiTrigger[2] = 1;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, -1, ButtonState.DOWN);
+        //			}
+        //			else if ((buffer[23]&0x04) == 0x00 && ZuoYiTrigger[2] == 1) {
+        //				ZuoYiTrigger[2] = 0;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerOne, -1, ButtonState.UP);
+        //			}
+
+        //			if ((buffer[23]&0x08) == 0x08 && ZuoYiTrigger[3] == 0) {
+        //				ZuoYiTrigger[3] = 1;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 1, ButtonState.DOWN);
+        //			}
+        //			else if ((buffer[23]&0x08) == 0x00 && ZuoYiTrigger[3] == 1) {
+        //				ZuoYiTrigger[3] = 0;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 1, ButtonState.UP);
+        //			}
+
+        //			if ((buffer[23]&0x10) == 0x10 && ZuoYiTrigger[4] == 0) {
+        //				ZuoYiTrigger[4] = 1;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 0, ButtonState.DOWN);
+        //			}
+        //			else if ((buffer[23]&0x10) == 0x00 && ZuoYiTrigger[4] == 1) {
+        //				ZuoYiTrigger[4] = 0;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, 0, ButtonState.UP);
+        //			}
+
+        //			if ((buffer[23]&0x20) == 0x20 && ZuoYiTrigger[5] == 0) {
+        //				ZuoYiTrigger[5] = 1;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, -1, ButtonState.DOWN);
+        //			}
+        //			else if ((buffer[23]&0x20) == 0x00 && ZuoYiTrigger[5] == 1) {
+        //				ZuoYiTrigger[5] = 0;
+        //				OnZuoYiDianJiMoveOver(PlayerEnum.PlayerTwo, -1, ButtonState.UP);
+        //			}
+
+        //			//game startBt, hitNpcBt or jiaoZhunBt
+        //			if( !bPlayerStartKeyDownP1 && (buffer[20]&0x01) == 0x01 )
+        //			{
+        //				//ScreenLog.Log("gameP1 startBt down!");
+        //				bPlayerStartKeyDownP1 = true;
+        //				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.DOWN );
+        //			}
+        //			else if ( bPlayerStartKeyDownP1 && (buffer[20]&0x01) == 0x00 )
+        //			{
+        //				//ScreenLog.Log("gameP1 startBt up!");
+        //				bPlayerStartKeyDownP1 = false;
+        //				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.UP );
+        //			}
+
+        //			if( !IsFireBtDownP1 && (buffer[20]&0x02) == 0x02 )
+        //			{
+        //				IsFireBtDownP1 = true;
+        //				InputEventCtrl.IsClickFireBtOneDown = true;
+        //				//ScreenLog.Log("game fireBtP1 down!");
+        //				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.DOWN );
+        //			}
+        //			else if( IsFireBtDownP1 && (buffer[20]&0x02) == 0x00 )
+        //			{
+        //				IsFireBtDownP1 = false;
+        //				InputEventCtrl.IsClickFireBtOneDown = false;
+        //				//ScreenLog.Log("game fireBtP1 up!");
+        //				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.UP );
+        //			}
+
+        //			if( !IsDaoDanBtDownP1 && (buffer[20]&0x04) == 0x04 )
+        //			{
+        //				IsDaoDanBtDownP1 = true;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.DOWN );
+        //			}
+        //			else if( IsDaoDanBtDownP1 && (buffer[20]&0x04) == 0x00 )
+        //			{
+        //				IsDaoDanBtDownP1 = false;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.UP );
+        //			}
+
+        //			//game startBt, hitNpcBt or jiaoZhunBt
+        //			if( !bPlayerStartKeyDownP2 && (buffer[20]&0x08) == 0x08 )
+        //			{
+        //				//ScreenLog.Log("gameP2 startBt down!");
+        //				bPlayerStartKeyDownP2 = true;
+        //				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.DOWN );
+        //			}
+        //			else if ( bPlayerStartKeyDownP2 && (buffer[20]&0x08) == 0x00 )
+        //			{
+        //				//ScreenLog.Log("gameP2 startBt up!");
+        //				bPlayerStartKeyDownP2 = false;
+        //				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.UP );
+        //			}
+
+        //			if( !IsFireBtDownP2 && (buffer[20]&0x10) == 0x10 )
+        //			{
+        //				IsFireBtDownP2 = true;
+        //				InputEventCtrl.IsClickFireBtTwoDown = true;
+        //				//ScreenLog.Log("game fireBtP2 down!");
+        //				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.DOWN );
+        //			}
+        //			else if( IsFireBtDownP2 && (buffer[20]&0x10) == 0x00 )
+        //			{
+        //				IsFireBtDownP2 = false;
+        //				InputEventCtrl.IsClickFireBtTwoDown = false;
+        //				//ScreenLog.Log("game fireBtP2 up!");
+        //				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.UP );
+        //			}
+
+        //			if( !IsDaoDanBtDownP2 && (buffer[20]&0x20) == 0x20 )
+        //			{
+        //				IsDaoDanBtDownP2 = true;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.DOWN );
+        //			}
+        //			else if( IsDaoDanBtDownP2 && (buffer[20]&0x20) == 0x00 )
+        //			{
+        //				IsDaoDanBtDownP2 = false;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.UP );
+        //			}
+
+        //			//DongGanBt
+        //			if( !IsClickDongGanBtOne && (buffer[21]&0x10) == 0x10 )
+        //			{
+        //				IsClickDongGanBtOne = true;
+        //				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.DOWN );
+        //			}
+        //			else if ( IsClickDongGanBtOne && (buffer[21]&0x10) == 0x00 )
+        //			{
+        //				IsClickDongGanBtOne = false;
+        //				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.UP );
+        //			}
+
+        //			//setPanel selectBt
+        //			if( !bSetEnterKeyDown && (buffer[21]&0x40) == 0x40 )
+        //			{
+        //				bSetEnterKeyDown = true;
+        //				//ScreenLog.Log("game setEnterBt down!");
+        //				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.DOWN );
+        //			}
+        //			else if ( bSetEnterKeyDown && (buffer[21]&0x40) == 0x00 )
+        //			{
+        //				bSetEnterKeyDown = false;
+        //				//ScreenLog.Log("game setEnterBt up!");
+        //				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.UP );
+        //			}
+
+        //			//setPanel moveBt
+        //			if ( !bSetMoveKeyDown && (buffer[21]&0x80) == 0x80 )
+        //			{
+        //				bSetMoveKeyDown = true;
+        //				//ScreenLog.Log("game setMoveBt down!");
+        //				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.DOWN );
+        //				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.DOWN );
+        //			}
+        //			else if( bSetMoveKeyDown && (buffer[21]&0x80) == 0x00 )
+        //			{
+        //				bSetMoveKeyDown = false;
+        //				//ScreenLog.Log("game setMoveBt up!");
+        //				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.UP );
+        //				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.UP );
+        //			}
+        //			#endif
+        //		}
+        //		break;
+
+        //		case PcvrComState.TanKeGunZhenDong:
+        //		{
+        //			#if COM_TANK_TEST || COM_FEIJI_TX
+        //			MousePositionP1.x = ((buffer[2] & 0x0f) << 8) + buffer[3];
+        //			MousePositionP1.y = ((buffer[4] & 0x0f) << 8) + buffer[5];
+        //			MousePositionP2.x = ((buffer[6] & 0x0f) << 8) + buffer[7];
+        //			MousePositionP2.y = ((buffer[8] & 0x0f) << 8) + buffer[9];                                                           
+
+        //			//game coinInfo
+        //			CoinCurPcvr12 = buffer[18];
+        //			uint coinP1 = CoinCurPcvr12 & 0x0f;
+        //			uint coinP2 = (CoinCurPcvr12 & 0xf0) >> 4;//coinP2 = coinP1; //test
+        //			if (IsSubPlayerCoin) {
+        //				if (coinP1 == 0 && IsSubCoinP1) {
+        //					IsSubCoinP1 = false;
+        //					IsSubPlayerCoin = false;
+        //					subCoinNum12 = 0;
+        //				}
+
+        //				if (coinP2 == 0 && IsSubCoinP2) {
+        //					IsSubCoinP2 = false;
+        //					IsSubPlayerCoin = false;
+        //					subCoinNum12 = 0;
+        //				}
+        //			}
+        //			else {
+        //				if (coinP1 > 0 && coinP1 < 256) {
+        //					IsSubCoinP1 = true;
+        //					CoinNumCurrentP1 += (int)coinP1;
+        //					XKGlobalData.SetCoinPlayerOne(CoinNumCurrentP1);
+        //					SubPcvrCoin(PlayerEnum.PlayerOne, (int)(CoinCurPcvr12 & 0x0f));
+        //				}
+
+        //				if (coinP2 > 0 && coinP2 < 256) {
+        //					IsSubCoinP2 = true;
+        //					CoinNumCurrentP2 += (int)coinP2;
+        //					XKGlobalData.SetCoinPlayerTwo(CoinNumCurrentP2);
+        //					SubPcvrCoin(PlayerEnum.PlayerTwo, (int)(CoinCurPcvr12 & 0xf0));
+        //				}
+        //			}
+
+        //			//game startBt, hitNpcBt or jiaoZhunBt
+        //			if( !bPlayerStartKeyDownP1 && (buffer[19]&0x04) == 0x04 )
+        //			{
+        //				//ScreenLog.Log("gameP1 startBt down!");
+        //				bPlayerStartKeyDownP1 = true;
+        //				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.DOWN );
+        //			}
+        //			else if ( bPlayerStartKeyDownP1 && (buffer[19]&0x04) == 0x00 )
+        //			{
+        //				//ScreenLog.Log("gameP1 startBt up!");
+        //				bPlayerStartKeyDownP1 = false;
+        //				InputEventCtrl.GetInstance().ClickStartBtOne( ButtonState.UP );
+        //			}
+
+        //			//game startBt, hitNpcBt or jiaoZhunBt
+        //			if( !bPlayerStartKeyDownP2 && (buffer[19]&0x08) == 0x08 )
+        //			{
+        //				//ScreenLog.Log("gameP2 startBt down!");
+        //				bPlayerStartKeyDownP2 = true;
+        //				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.DOWN );
+        //			}
+        //			else if ( bPlayerStartKeyDownP2 && (buffer[19]&0x08) == 0x00 )
+        //			{
+        //				//ScreenLog.Log("gameP2 startBt up!");
+        //				bPlayerStartKeyDownP2 = false;
+        //				InputEventCtrl.GetInstance().ClickStartBtTwo( ButtonState.UP );
+        //			}
+
+        //			//DongGanBt
+        //			if( !IsClickDongGanBtOne && (buffer[19]&0x10) == 0x10 )
+        //			{
+        //				IsClickDongGanBtOne = true;
+        //				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.DOWN );
+        //			}
+        //			else if ( IsClickDongGanBtOne && (buffer[19]&0x10) == 0x00 )
+        //			{
+        //				IsClickDongGanBtOne = false;
+        //				InputEventCtrl.GetInstance().ClickStopDongGanBtOne( ButtonState.UP );
+        //			}
+
+        //			if( !IsFireBtDownP1 && (buffer[19]&0x40) == 0x40 )
+        //			{
+        //				IsFireBtDownP1 = true;
+        //				InputEventCtrl.IsClickFireBtOneDown = true;
+        //				//ScreenLog.Log("game fireBtP1 down!");
+        //				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.DOWN );
+        //			}
+        //			else if( IsFireBtDownP1 && (buffer[19]&0x40) == 0x00 )
+        //			{
+        //				IsFireBtDownP1 = false;
+        //				InputEventCtrl.IsClickFireBtOneDown = false;
+        //				//ScreenLog.Log("game fireBtP1 up!");
+        //				InputEventCtrl.GetInstance().ClickFireBtOne( ButtonState.UP );
+        //			}
+
+        //			if( !IsDaoDanBtDownP1 && (buffer[19]&0x80) == 0x80 )
+        //			{
+        //				IsDaoDanBtDownP1 = true;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.DOWN );
+        //			}
+        //			else if( IsDaoDanBtDownP1 && (buffer[19]&0x80) == 0x00 )
+        //			{
+        //				IsDaoDanBtDownP1 = false;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtOne( ButtonState.UP );
+        //			}
+
+        //			if( !IsFireBtDownP2 && (buffer[20]&0x01) == 0x01 )
+        //			{
+        //				IsFireBtDownP2 = true;
+        //				InputEventCtrl.IsClickFireBtTwoDown = true;
+        //				//ScreenLog.Log("game fireBtP2 down!");
+        //				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.DOWN );
+        //			}
+        //			else if( IsFireBtDownP2 && (buffer[20]&0x01) == 0x00 )
+        //			{
+        //				IsFireBtDownP2 = false;
+        //				InputEventCtrl.IsClickFireBtTwoDown = false;
+        //				//ScreenLog.Log("game fireBtP2 up!");
+        //				InputEventCtrl.GetInstance().ClickFireBtTwo( ButtonState.UP );
+        //			}
+
+        //			if( !IsDaoDanBtDownP2 && (buffer[20]&0x02) == 0x02 )
+        //			{
+        //				IsDaoDanBtDownP2 = true;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.DOWN );
+        //			}
+        //			else if( IsDaoDanBtDownP2 && (buffer[20]&0x02) == 0x00 )
+        //			{
+        //				IsDaoDanBtDownP2 = false;
+        //				InputEventCtrl.GetInstance().ClickDaoDanBtTwo( ButtonState.UP );
+        //			}
+
+        //			//setPanel selectBt
+        //			if( !bSetEnterKeyDown && (buffer[19]&0x01) == 0x01 )
+        //			{
+        //				bSetEnterKeyDown = true;
+        //				//ScreenLog.Log("game setEnterBt down!");
+        //				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.DOWN );
+        //			}
+        //			else if ( bSetEnterKeyDown && (buffer[19]&0x01) == 0x00 )
+        //			{
+        //				bSetEnterKeyDown = false;
+        //				//ScreenLog.Log("game setEnterBt up!");
+        //				InputEventCtrl.GetInstance().ClickSetEnterBt( ButtonState.UP );
+        //			}
+
+        //			//setPanel moveBt
+        //			if ( !bSetMoveKeyDown && (buffer[19]&0x02) == 0x02 )
+        //			{
+        //				bSetMoveKeyDown = true;
+        //				//ScreenLog.Log("game setMoveBt down!");
+        //				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.DOWN );
+        //				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.DOWN );
+        //			}
+        //			else if( bSetMoveKeyDown && (buffer[19]&0x02) == 0x00 )
+        //			{
+        //				bSetMoveKeyDown = false;
+        //				//ScreenLog.Log("game setMoveBt up!");
+        //				//FramesPerSecond.GetInstance().ClickSetMoveBtEvent( ButtonState.UP );
+        //				InputEventCtrl.GetInstance().ClickSetMoveBt( ButtonState.UP );
+        //			}
+        //			#endif
+        //		}
+        //		break;
+        //		}
+    }
+
+    //	void ResetIsTouBiBtDown()
+    //	{
+    //		if(!bIsTouBiBtDown)
+    //		{
+    //			return;
+    //		}
+    //		bIsTouBiBtDown = false;
+    //	}
+
+    static void SubTaBanCountInfo()
 	{
 		if(TanBanDownCount_P1 > 0)
 		{
@@ -3384,9 +4350,9 @@ QiNangArray[0]            QiNangArray[1]
 	
 	void InitJiaoYanMiMa()
 	{
-		JiaoYanMiMa[1] = 0x8e; //0x8e
-		JiaoYanMiMa[2] = 0xc3; //0xc3
-		JiaoYanMiMa[3] = 0xd7; //0xd7
+		JiaoYanMiMa[1] = 0xf8; //0x8e
+		JiaoYanMiMa[2] = 0xd5; //0xc3
+		JiaoYanMiMa[3] = 0x7e; //0xd7
 		JiaoYanMiMa[0] = 0x00;
 		for (int i = 1; i < 4; i++) {
 			JiaoYanMiMa[0] ^= JiaoYanMiMa[i];

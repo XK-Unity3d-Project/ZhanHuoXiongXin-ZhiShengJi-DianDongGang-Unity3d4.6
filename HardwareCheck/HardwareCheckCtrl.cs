@@ -1,14 +1,21 @@
 ﻿using UnityEngine;
-using System.Collections;
 using System.Diagnostics;
-
+/// <summary>
+/// 硬件测试工具控制.
+/// </summary>
 public class HardwareCheckCtrl : MonoBehaviour
 {
 	public PcvrComState PcvrComSt;
-	/**
+    public UILabel[] ZhouYunXingLb;
+    public UILabel[] ZhouZhunBeiLb;
+    public GameObject[] ZhouTriggerObj;
+    public UILabel[] ZhouYunXingShuLiangLb;
+    public UILabel[] ZhouYunXingSuDuLb;
+    public UILabel[] ZhouMaiChongInfoLb;
+    /**
 	 * 直升机坦克联合作战游戏在硬件测试界面隐藏的对象.
 	 */
-	public GameObject[] HiddenObjLink;
+    public GameObject[] HiddenObjLink;
 	/**
 	 * 用来控制7和8号气囊按键调换位置.
 	 */
@@ -85,7 +92,12 @@ public class HardwareCheckCtrl : MonoBehaviour
 		QiangPosLable[1].text = "Y-> "+pcvr.MousePositionP1.y.ToString();
 		QiangPosLable[2].text = "X-> "+pcvr.MousePositionP2.x.ToString();
 		QiangPosLable[3].text = "Y-> "+pcvr.MousePositionP2.y.ToString();
-	}
+        for (int i = 0; i < ZhouMaiChongInfoLb.Length; i++)
+        {
+            ZhouMaiChongInfoLb[i].text = pcvr.GetInstance().DianDongGangPosCur[i] + "/" +
+                pcvr.GetInstance().DianDongGangXingCheng[i];
+        }
+    }
 
 	void ClickSetEnterBtEvent(ButtonState val)
 	{
@@ -444,8 +456,226 @@ public class HardwareCheckCtrl : MonoBehaviour
 		QiangZDLable[1].text = valZD.ToString();
 		pcvr.QiangZhenDongP2 = valZD;
 	}
+    public void OnClickJiaoZhunDianDongGangBt()
+    {
+        pcvr.GetInstance().InitJiaoZhunDianDongGang();
+    }
+    public void OnDragZhouYunXingShuLiang()
+    {
+        if (UIProgressBar.current == null)
+        {
+            return;
+        }
+        int val = Mathf.RoundToInt(UIProgressBar.current.value * 65535f);
+        HardwareSliderDt SliderDt = UIProgressBar.current.GetComponent<HardwareSliderDt>();
+        switch (SliderDt.SliderState)
+        {
+            case HardwareSliderDt.SliderEnum.YunXingShuLiang1:
+                {
+                    ZhouYunXingShuLiangLb[0].text = val.ToString();
+                    pcvr.GetInstance().ZhouMoveDisA = val;
+                    break;
+                }
+            case HardwareSliderDt.SliderEnum.YunXingShuLiang2:
+                {
+                    ZhouYunXingShuLiangLb[1].text = val.ToString();
+                    pcvr.GetInstance().ZhouMoveDisB = val;
+                    break;
+                }
+            case HardwareSliderDt.SliderEnum.YunXingShuLiang3:
+                {
+                    ZhouYunXingShuLiangLb[2].text = val.ToString();
+                    pcvr.GetInstance().ZhouMoveDisC = val;
+                    break;
+                }
+            case HardwareSliderDt.SliderEnum.YunXingShuLiang4:
+                {
+                    ZhouYunXingShuLiangLb[3].text = val.ToString();
+                    pcvr.GetInstance().ZhouMoveDisD = val;
+                    break;
+                }
+        }
+    }
 
-	public UILabel DianJiSpeedLB;
+    public void OnDragZhouYunXingSpeed()
+    {
+        if (UIProgressBar.current == null)
+        {
+            return;
+        }
+        int val = Mathf.RoundToInt(UIProgressBar.current.value * 15f);
+        HardwareSliderDt SliderDt = UIProgressBar.current.GetComponent<HardwareSliderDt>();
+        switch (SliderDt.SliderState)
+        {
+            case HardwareSliderDt.SliderEnum.YunXingSuDu1:
+                {
+                    ZhouYunXingSuDuLb[0].text = "0x1" + val.ToString("X");
+                    break;
+                }
+            case HardwareSliderDt.SliderEnum.YunXingSuDu2:
+                {
+                    ZhouYunXingSuDuLb[1].text = "0x1" + val.ToString("X");
+                    break;
+                }
+            case HardwareSliderDt.SliderEnum.YunXingSuDu3:
+                {
+                    ZhouYunXingSuDuLb[2].text = "0x1" + val.ToString("X");
+                    break;
+                }
+            case HardwareSliderDt.SliderEnum.YunXingSuDu4:
+                {
+                    ZhouYunXingSuDuLb[3].text = "0xD" + val.ToString("X");
+                    break;
+                }
+        }
+
+        byte zhouIndex = (byte)((int)SliderDt.SliderState - 4);
+        pcvr.GetInstance().SetZhouMoveSpeed(zhouIndex, (byte)val);
+    }
+    /// <summary>
+    /// 当玩家点击发送字头命令.
+    /// groupVal -> checkBox的组.
+    /// cmdVal -> 发送字头命令.
+    /// </summary>
+    public void OnClickSendHeadCmd(int cmdVal, bool isActive)
+    {
+        if (!isActive)
+        {
+            return;
+        }
+        UnityEngine.Debug.Log("Unity: -> cmdVal " + cmdVal + ", isActive " + isActive);
+        byte WriteHead01 = 0x01;
+        switch (cmdVal)
+        {
+            case 1:
+                {
+                    WriteHead01 = 0x01;
+                    break;
+                }
+            case 2:
+                {
+                    WriteHead01 = 0x02;
+                    break;
+                }
+            case 3:
+                {
+                    WriteHead01 = 0x03;
+                    break;
+                }
+        }
+        pcvr.GetInstance().WriteHead_1 = WriteHead01;
+    }
+    /// <summary>
+    /// 当玩家点击轴运行命令.
+    /// groupVal -> checkBox的组.
+    /// cmdVal -> 轴运行命令.
+    /// </summary>
+    public void OnClickZhouYunXingCmd(int groupVal, int cmdVal, bool isActive)
+    {
+        if (!isActive)
+        {
+            return;
+        }
+        UnityEngine.Debug.Log("Unity: -> groupVal " + groupVal + ", cmdVal " + cmdVal + ", isActive " + isActive);
+        pcvr.ZhouCmdEnum zhouCmd = pcvr.ZhouCmdEnum.Stop;
+        switch (cmdVal)
+        {
+            case 1:
+                {
+                    zhouCmd = pcvr.ZhouCmdEnum.ShunShiZhen;
+                    break;
+                }
+            case 2:
+                {
+                    zhouCmd = pcvr.ZhouCmdEnum.NiShiZhen;
+                    break;
+                }
+        }
+
+        switch (groupVal)
+        {
+            case 1:
+                {
+                    pcvr.GetInstance().ZhouCmdStateA = zhouCmd;
+                    break;
+                }
+            case 2:
+                {
+                    pcvr.GetInstance().ZhouCmdStateB = zhouCmd;
+                    break;
+                }
+            case 3:
+                {
+                    pcvr.GetInstance().ZhouCmdStateC = zhouCmd;
+                    break;
+                }
+            case 4:
+                {
+                    pcvr.GetInstance().ZhouCmdStateD = zhouCmd;
+                    break;
+                }
+        }
+    }
+
+    public void OnZhouTriggerActive(byte triggerIndex, ButtonState btState)
+    {
+        ZhouTriggerObj[triggerIndex].SetActive(btState == ButtonState.DOWN ? true : false);
+    }
+
+    public void SetZhouYunXingState(byte zhouState, int zhouIndex)
+    {
+        ZhouYunXingLb[zhouIndex].text = "0x" + zhouState.ToString("X2");
+        pcvr.ZhouMoveEnum zhouStateVal = (pcvr.ZhouMoveEnum) zhouState;
+        switch (zhouStateVal)
+        {
+            case pcvr.ZhouMoveEnum.ShunShiZhen:
+                {
+                    ZhouYunXingLb[zhouIndex].text += " 顺时针运行";
+                    break;
+                }
+            case pcvr.ZhouMoveEnum.NiShiZhen:
+                {
+                    ZhouYunXingLb[zhouIndex].text += " 逆时针运行";
+                    break;
+                }
+            case pcvr.ZhouMoveEnum.TingZhi:
+                {
+                    ZhouYunXingLb[zhouIndex].text += " 停止";
+                    break;
+                }
+            default:
+                {
+                    ZhouYunXingLb[zhouIndex].text += " 无意义";
+                    break;
+                }
+        }
+    }
+
+    public void SetZhouZhunBeiState(byte zhouState, int zhouIndex)
+    {
+        ZhouZhunBeiLb[zhouIndex].text = "0x" + zhouState.ToString("X2");
+        pcvr.ZhouZhunBeiEnum zhouStateVal = (pcvr.ZhouZhunBeiEnum) zhouState;
+        switch (zhouStateVal)
+        {
+            case pcvr.ZhouZhunBeiEnum.ZhunBeiHao:
+                {
+                    ZhouZhunBeiLb[zhouIndex].text += " 准备好";
+                    break;
+                }
+            case pcvr.ZhouZhunBeiEnum.WeiJiuXu:
+                {
+                    ZhouZhunBeiLb[zhouIndex].text += " 未就绪";
+                    break;
+                }
+            case pcvr.ZhouZhunBeiEnum.WuYiYi:
+                {
+                    ZhouZhunBeiLb[zhouIndex].text += " 无意义";
+                    break;
+                }
+        }
+    }
+
+    public UILabel DianJiSpeedLB;
 	public void SetDianJiSpeed()
 	{
 		if (UIProgressBar.current == null) {

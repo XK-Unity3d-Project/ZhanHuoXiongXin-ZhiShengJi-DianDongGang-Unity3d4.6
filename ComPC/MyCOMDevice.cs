@@ -33,9 +33,9 @@ public class MyCOMDevice : MonoBehaviour
 	{
 		public string ThreadName;
 		static SerialPort _SerialPort;
-		public static int BufLenRead = 39;
+		public static int BufLenRead = 47;
 		public static int BufLenReadEnd = 4;
-		public static  int BufLenWrite = 32;
+		public static  int BufLenWrite = 38;
 		public static byte[] ReadByteMsg = new byte[BufLenRead];
 		public static byte[] WriteByteMsg = new byte[BufLenWrite];
 		static string RxStringData;
@@ -112,17 +112,17 @@ public class MyCOMDevice : MonoBehaviour
 					continue;
 				}*/
 
-				IsTestWRPer = false;
-				if (IsReadMsgComTimeOut) {
-					CloseComPort();
-					break;
-				}
+				//IsTestWRPer = false;
+				//if (IsReadMsgComTimeOut) {
+				//	CloseComPort();
+				//	break;
+				//}
 
-				if (IsStopComTX) {
-					IsReadComMsg = false;
-					Thread.Sleep(1000);
-					continue;
-				}
+				//if (IsStopComTX) {
+				//	IsReadComMsg = false;
+				//	Thread.Sleep(1000);
+				//	continue;
+				//}
 
 				COMTxData();
 				COMRxData();
@@ -132,7 +132,7 @@ public class MyCOMDevice : MonoBehaviour
 				else {
 					Thread.Sleep(15);
 				}
-				IsTestWRPer = true;
+				//IsTestWRPer = true;
 			}
 			while (_SerialPort.IsOpen);
 			CloseComPort();
@@ -183,12 +183,12 @@ public class MyCOMDevice : MonoBehaviour
 					return;
 				}
 
-				if (GameTypeCtrl.AppTypeStatic == AppGameType.LianJiServer) {
-					return;
-				}
+				//if (GameTypeCtrl.AppTypeStatic == AppGameType.LianJiServer) {
+				//	return;
+				//}
 
 				Debug.Log("Rx error:COM..." + exception);
-				IsReadMsgComTimeOut = true;
+				//IsReadMsgComTimeOut = true;
 				IsReadComMsg = false;
 				ReadTimeOutCount++;
 			}
@@ -294,12 +294,13 @@ public class MyCOMDevice : MonoBehaviour
 	 */
 	public void ForceRestartComPort()
 	{
-		if (!pcvr.bIsHardWare) {
-			return;
-		}
-		ComThreadClass.IsReadMsgComTimeOut = true;
-		RestartComPort();
-	}
+        if (!pcvr.bIsHardWare)
+        {
+            return;
+        }
+        //ComThreadClass.IsReadMsgComTimeOut = true;
+        //RestartComPort();
+    }
 
 	void Update()
 	{
@@ -312,20 +313,19 @@ public class MyCOMDevice : MonoBehaviour
 //		}
 		//test end...
 		
-		if (!pcvr.bIsHardWare || XkGameCtrl.IsLoadingLevel || ComThreadClass.IsReadComMsg) {
-			return;
-		}
+		//if (!pcvr.bIsHardWare || XkGameCtrl.IsLoadingLevel || ComThreadClass.IsReadComMsg) {
+		//	return;
+		//}
 
-		if (GameTypeCtrl.AppTypeStatic == AppGameType.LianJiServer) {
-			return;
-		}
+		//if (GameTypeCtrl.AppTypeStatic == AppGameType.LianJiServer) {
+		//	return;
+		//}
 
-		if (Time.realtimeSinceStartup - TimeLastVal < TimeUnitDelta) {
-			return;
-		}
-		TimeLastVal = Time.realtimeSinceStartup;
-
-		CheckTimeOutReadMsg();
+		//if (Time.realtimeSinceStartup - TimeLastVal < TimeUnitDelta) {
+		//	return;
+		//}
+		//TimeLastVal = Time.realtimeSinceStartup;
+		//CheckTimeOutReadMsg();
 	}
 
 //	void OnGUI()

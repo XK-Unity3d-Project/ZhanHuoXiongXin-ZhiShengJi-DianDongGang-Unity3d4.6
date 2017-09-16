@@ -23,88 +23,123 @@ public class XKGlobalData {
 	public static int GameAudioVolume;
 	public static bool IsFreeMode;
 	public static string GameDiff = "1";
-	static string FilePath = "";
+    /// <summary>
+    /// 轴(电动缸)脉冲总数.
+    /// </summary>
+    public static int[] ZhouMaiChongValMax = new int[3];
+    static string FilePath = "";
 	static public string FileName = "../config/XKGameConfig.xml";
 	static public HandleJson HandleJsonObj = null;
 	float TimeValDaoDanJingGao;
 	static XKGlobalData Instance;
 	public static XKGlobalData GetInstance()
 	{
-		if (Instance == null) {
-			Instance = new XKGlobalData();
-			Instance.InitInfo();
-			if (!Directory.Exists(FilePath)) {
-				Directory.CreateDirectory(FilePath);
-			}
+        try
+        {
+            if (Instance == null)
+            {
+                Instance = new XKGlobalData();
+                Instance.InitInfo();
+                if (!Directory.Exists(FilePath))
+                {
+                    Directory.CreateDirectory(FilePath);
+                }
 
-			if(HandleJsonObj == null) {
-				HandleJsonObj = HandleJson.GetInstance();
-			}
+                if (HandleJsonObj == null)
+                {
+                    HandleJsonObj = HandleJson.GetInstance();
+                }
 
-			string startCoinInfo = HandleJsonObj.ReadFromFileXml(FileName, "START_COIN");
-			if (startCoinInfo == null || startCoinInfo == "") {
-				startCoinInfo = "1";
-				HandleJsonObj.WriteToFileXml(FileName, "START_COIN", startCoinInfo);
-			}
-			XKGlobalData.GameNeedCoin = Convert.ToInt32( startCoinInfo );
-//			GameNeedCoin = 1;
+                string startCoinInfo = HandleJsonObj.ReadFromFileXml(FileName, "START_COIN");
+                if (startCoinInfo == null || startCoinInfo == "")
+                {
+                    startCoinInfo = "1";
+                    HandleJsonObj.WriteToFileXml(FileName, "START_COIN", startCoinInfo);
+                }
+                XKGlobalData.GameNeedCoin = Convert.ToInt32(startCoinInfo);
+                //GameNeedCoin = 1;
 
-			string modeGame = HandleJsonObj.ReadFromFileXml(FileName, "GAME_MODE");
-			if(modeGame == null || modeGame == "") {
-				modeGame = "1";
-				HandleJsonObj.WriteToFileXml(FileName, "GAME_MODE", modeGame);
-			}
-			
-			if(modeGame == "0") {
-				IsFreeMode = true;
-			}
+                string modeGame = HandleJsonObj.ReadFromFileXml(FileName, "GAME_MODE");
+                if (modeGame == null || modeGame == "")
+                {
+                    modeGame = "1";
+                    HandleJsonObj.WriteToFileXml(FileName, "GAME_MODE", modeGame);
+                }
 
-			string gmText = HandleJsonObj.ReadFromFileXml(FileName, "GameTextVal");
-			if (gmText == null || gmText == "") {
-				gmText = "0"; //中文版.
-				SetGameTextMode(GameTextType.Chinese);
-			}
-			GameTextVal = gmText == "0" ? GameTextType.Chinese : GameTextType.English;
-			//GameTextVal = GameTextType.English; //test.
+                if (modeGame == "0")
+                {
+                    IsFreeMode = true;
+                }
 
-			GetGameDiffVal();
+                string gmText = HandleJsonObj.ReadFromFileXml(FileName, "GameTextVal");
+                if (gmText == null || gmText == "")
+                {
+                    gmText = "0"; //中文版.
+                    SetGameTextMode(GameTextType.Chinese);
+                }
+                GameTextVal = gmText == "0" ? GameTextType.Chinese : GameTextType.English;
+                //GameTextVal = GameTextType.English; //test.
 
-			string gunZhenDongStr = HandleJsonObj.ReadFromFileXml(FileName, "GunZDP1");
-			if(gunZhenDongStr == null || gunZhenDongStr == "") {
-				gunZhenDongStr = "5";
-			}
-			GunZhenDongP1 = Convert.ToInt32( gunZhenDongStr );
-			pcvr.SetGunZhenDongDengJi(GunZhenDongP1, PlayerEnum.PlayerOne);
+                GetGameDiffVal();
 
-			gunZhenDongStr = HandleJsonObj.ReadFromFileXml(FileName, "GunZDP2");
-			if(gunZhenDongStr == null || gunZhenDongStr == "") {
-				gunZhenDongStr = "5";
-			}
-			GunZhenDongP2 = Convert.ToInt32( gunZhenDongStr );
-			pcvr.SetGunZhenDongDengJi(GunZhenDongP2, PlayerEnum.PlayerTwo);
+                string gunZhenDongStr = HandleJsonObj.ReadFromFileXml(FileName, "GunZDP1");
+                if (gunZhenDongStr == null || gunZhenDongStr == "")
+                {
+                    gunZhenDongStr = "5";
+                }
+                GunZhenDongP1 = Convert.ToInt32(gunZhenDongStr);
+                pcvr.SetGunZhenDongDengJi(GunZhenDongP1, PlayerEnum.PlayerOne);
 
-			string dianJiSpeedStr = HandleJsonObj.ReadFromFileXml(FileName, "DianJiSpeedP1");
-			if(dianJiSpeedStr == null || dianJiSpeedStr == "") {
-				dianJiSpeedStr = "5";
-			}
-			DianJiSpeedP1 = Convert.ToInt32( dianJiSpeedStr );
-			pcvr.SetPlayerZuoYiDianJiSpeed(DianJiSpeedP1, PlayerEnum.PlayerOne);
-			
-			dianJiSpeedStr = HandleJsonObj.ReadFromFileXml(FileName, "DianJiSpeedP2");
-			if(dianJiSpeedStr == null || dianJiSpeedStr == "") {
-				dianJiSpeedStr = "5";
-			}
-			DianJiSpeedP2 = Convert.ToInt32( dianJiSpeedStr );
-			pcvr.SetPlayerZuoYiDianJiSpeed(DianJiSpeedP2, PlayerEnum.PlayerTwo);
+                gunZhenDongStr = HandleJsonObj.ReadFromFileXml(FileName, "GunZDP2");
+                if (gunZhenDongStr == null || gunZhenDongStr == "")
+                {
+                    gunZhenDongStr = "5";
+                }
+                GunZhenDongP2 = Convert.ToInt32(gunZhenDongStr);
+                pcvr.SetGunZhenDongDengJi(GunZhenDongP2, PlayerEnum.PlayerTwo);
 
-			string val = HandleJsonObj.ReadFromFileXml(FileName, "GameAudioVolume");
-			if (val == null || val == "") {
-				val = "7";
-				HandleJsonObj.WriteToFileXml(FileName, "GameAudioVolume", val);
-			}
-			GameAudioVolume = Convert.ToInt32(val);
-		}
-		return Instance;
+                string dianJiSpeedStr = HandleJsonObj.ReadFromFileXml(FileName, "DianJiSpeedP1");
+                if (dianJiSpeedStr == null || dianJiSpeedStr == "")
+                {
+                    dianJiSpeedStr = "5";
+                }
+                DianJiSpeedP1 = Convert.ToInt32(dianJiSpeedStr);
+                pcvr.SetPlayerZuoYiDianJiSpeed(DianJiSpeedP1, PlayerEnum.PlayerOne);
+
+                dianJiSpeedStr = HandleJsonObj.ReadFromFileXml(FileName, "DianJiSpeedP2");
+                if (dianJiSpeedStr == null || dianJiSpeedStr == "")
+                {
+                    dianJiSpeedStr = "5";
+                }
+                DianJiSpeedP2 = Convert.ToInt32(dianJiSpeedStr);
+                pcvr.SetPlayerZuoYiDianJiSpeed(DianJiSpeedP2, PlayerEnum.PlayerTwo);
+
+                string val = HandleJsonObj.ReadFromFileXml(FileName, "GameAudioVolume");
+                if (val == null || val == "")
+                {
+                    val = "7";
+                    HandleJsonObj.WriteToFileXml(FileName, "GameAudioVolume", val);
+                }
+                GameAudioVolume = Convert.ToInt32(val);
+
+                for (int i = 0; i < 3; i++)
+                {
+                    val = HandleJsonObj.ReadFromFileXml(FileName, "ZhouMaiChongValMax" + i);
+                    if (val == null || val == "")
+                    {
+                        val = "0";
+                        HandleJsonObj.WriteToFileXml(FileName, "ZhouMaiChongValMax" + i, val);
+                    }
+                    ZhouMaiChongValMax[i] = Convert.ToInt32(val);
+                }
+            }
+            return Instance;
+        }
+        catch (Exception ex)
+        {
+            Debug.Log("Unity: -> " + ex);
+            throw;
+        }
 	}
 	
 	void InitInfo()
@@ -121,7 +156,16 @@ public class XKGlobalData {
 		}
 		GameDiff = diffStr;
 	}
-
+    public void SaveZhouMaiChongMaxVal(int[] maiChongMaxValArray)
+    {
+        int val = 0;
+        for (int i = 0; i < 3; i++)
+        {
+            val = maiChongMaxValArray[i];
+            HandleJsonObj.WriteToFileXml(FileName, "ZhouMaiChongValMax" + i, val.ToString());
+            ZhouMaiChongValMax[i] = val;
+        }
+    }
 	public static void SetCoinPlayerOne(int coin)
 	{
 		if (coin > 0 && CoinPlayerOne != coin) {

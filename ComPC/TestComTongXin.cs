@@ -7,16 +7,16 @@ public class TestComTongXin : MonoBehaviour
 	void Awake()
 	{
 		MyCOMDevice.PcvrComSt = PcvrComState.TanKeGunZhenDong; //test.
-		switch (MyCOMDevice.PcvrComSt) {
-		case PcvrComState.TanKeFangXiangZhenDong:
-			MyCOMDevice.ComThreadClass.BufLenRead = 39;
-			MyCOMDevice.ComThreadClass.BufLenWrite = 32;
-			break;
-		case PcvrComState.TanKeGunZhenDong:
-			MyCOMDevice.ComThreadClass.BufLenRead = 27;
-			MyCOMDevice.ComThreadClass.BufLenWrite = 23;
-			break;
-		}
+		//switch (MyCOMDevice.PcvrComSt) {
+		//case PcvrComState.TanKeFangXiangZhenDong:
+		//	MyCOMDevice.ComThreadClass.BufLenRead = 39;
+		//	MyCOMDevice.ComThreadClass.BufLenWrite = 32;
+		//	break;
+		//case PcvrComState.TanKeGunZhenDong:
+		//	MyCOMDevice.ComThreadClass.BufLenRead = 27;
+		//	MyCOMDevice.ComThreadClass.BufLenWrite = 23;
+		//	break;
+		//}
 		HID_BUF_LEN_WRITE = MyCOMDevice.ComThreadClass.BufLenWrite;
 	}
 
