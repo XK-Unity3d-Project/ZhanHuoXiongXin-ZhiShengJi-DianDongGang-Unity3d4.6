@@ -21,7 +21,7 @@ using System.Collections;
 using System;
 
 public class pcvr : MonoBehaviour {
-	public static bool bIsHardWare = false;
+    public static bool bIsHardWare = false;
 	public static bool IsTestPCKey = false;
 	public static bool IsTestHardWareError = false;
 	/// <summary>
