@@ -285,7 +285,7 @@ public class pcvr : MonoBehaviour {
 	const byte WriteHead_2 = 0x55;
 	const byte WriteEnd_1 = 0x0d;
 	const byte WriteEnd_2 = 0x0a;
-    const byte HeadRead_1 = 0x01;
+    const byte HeadRead_1 = 0x02;
     const byte HeadRead_2 = 0x55;
     const byte EndRead_1 = 0x41;
     const byte EndRead_2 = 0x42;
@@ -1123,6 +1123,8 @@ QiNangArray[0]            QiNangArray[1]
 	float[] LastFireActiveTimeArray = {0f, 0f};
     /// <summary>
     /// 轴的运行命令(俯视).
+    /// ShunShiZhen -> 顺时针-轴向上升.
+    /// NiShiZhen -> 逆时针-轴向下降..
     /// </summary>
     public enum ZhouCmdEnum
     {
@@ -1137,19 +1139,89 @@ QiNangArray[0]            QiNangArray[1]
     /// <summary>
     /// 轴的运行速度[0xa0, 0xaf].
     /// </summary>
-    byte ZhouMoveSpeedA = 0xa0;
+    byte ZhouMoveSpeedA = 0x10;
     /// <summary>
     /// 轴的运行速度[0xb0, 0xbf].
     /// </summary>
-    byte ZhouMoveSpeedB = 0xb0;
+    byte ZhouMoveSpeedB = 0x10;
     /// <summary>
     /// 轴的运行速度[0xc0, 0xcf].
     /// </summary>
-    byte ZhouMoveSpeedC = 0xc0;
+    byte ZhouMoveSpeedC = 0x10;
     /// <summary>
     /// 轴的运行速度[0xd0, 0xdf].
     /// </summary>
     byte ZhouMoveSpeedD = 0xd0;
+    /// <summary>
+    /// 前（12下、3上）
+    /// 后（12上、3下）
+	/// 左（13下、2上）
+	/// 右（23下、1上）
+	/// 左前（1下、23上）
+	/// 右前（2下、13上）
+    /// 上平（123上）
+    /// 下平（123下）
+    /// </summary>
+    public void DoPlayerPathDianDongGangCmd(AiMark.DianDongGangCmdEnum cmd, int speed)
+    {
+        if (cmd == AiMark.DianDongGangCmdEnum.Null || speed == 0)
+        {
+            ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.Stop;
+            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x00;
+            return;
+        }
+        ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = (byte)(0x10 | speed);
+
+        switch(cmd)
+        {
+            case AiMark.DianDongGangCmdEnum.Qian:
+                {
+                    ZhouCmdStateA = ZhouCmdStateB = ZhouCmdEnum.ShunShiZhen;
+                    ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+                    break;
+                }
+            case AiMark.DianDongGangCmdEnum.Hou:
+                {
+                    ZhouCmdStateA = ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+                    ZhouCmdStateB = ZhouCmdEnum.ShunShiZhen;
+                    break;
+                }
+            case AiMark.DianDongGangCmdEnum.Zuo:
+                {
+                    ZhouCmdStateA = ZhouCmdStateB = ZhouCmdEnum.ShunShiZhen;
+                    ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+                    break;
+                }
+            case AiMark.DianDongGangCmdEnum.You:
+                {
+                    ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+                    ZhouCmdStateA = ZhouCmdEnum.ShunShiZhen;
+                    break;
+                }
+            case AiMark.DianDongGangCmdEnum.ZuoQian:
+                {
+                    ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.ShunShiZhen;
+                    ZhouCmdStateA = ZhouCmdEnum.NiShiZhen;
+                    break;
+                }
+            case AiMark.DianDongGangCmdEnum.YouQian:
+                {
+                    ZhouCmdStateA = ZhouCmdStateC = ZhouCmdEnum.ShunShiZhen;
+                    ZhouCmdStateB = ZhouCmdEnum.NiShiZhen;
+                    break;
+                }
+            case AiMark.DianDongGangCmdEnum.ShangPing:
+                {
+                    ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.ShunShiZhen;
+                    break;
+                }
+            case AiMark.DianDongGangCmdEnum.XiaPing:
+                {
+                    ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+                    break;
+                }
+        }
+    }
     /// <summary>
     /// 设置轴的运行速度.
     /// zhouIndex轴的索引[0, 3].

@@ -3,7 +3,27 @@ using System.Collections;
 
 public class AiMark : MonoBehaviour
 {
-	public static bool IsMoveSpeedByAiMark = true;
+    public enum DianDongGangCmdEnum
+    {
+        Null,
+        Qian,
+        Hou,
+        Zuo,
+        You,
+        ZuoQian,
+        YouQian,
+        ShangPing,
+        XiaPing,
+    }
+    public DianDongGangCmdEnum DianDongGCmd = DianDongGangCmdEnum.Null;
+    /// <summary>
+    /// 电动缸运行速度.
+    /// 0 -> 停止.
+    /// [1, 15] -> 速度.
+    /// </summary>
+    [Range(0, 15)]
+    public int DianDongGangSpeed = 0;
+    public static bool IsMoveSpeedByAiMark = true;
 	[Range(0.1f, 200f)]public float MvSpeed = 1f;
 	/**************************************************************
 	 * PlayerAni是ZhiShengJiAction.null并且TimePlayerAni > 0f时,

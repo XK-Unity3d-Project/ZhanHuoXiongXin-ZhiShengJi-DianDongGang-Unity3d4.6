@@ -33,25 +33,6 @@ public enum AnimatorNameNPC
 }
 
 public class NpcMark : MonoBehaviour {
-    /// <summary>
-    /// 电动缸控制命令.
-    /// 0 -> 无意义.
-    /// 1 -> 前(俯视).
-    /// 2 -> 后.
-    /// 3 -> 左.
-    /// 4 -> 右.
-    /// 5 -> 左前.
-    /// 6 -> 右前.
-    /// 7 -> 上平.
-    /// 8 -> 下平.
-    /// </summary>
-    [Range(0, 8)]public int DianDongGangCmd = 0;
-    /// <summary>
-    /// 电动缸运行速度.
-    /// 0 -> 停止.
-    /// [1, 15] -> 速度.
-    /// </summary>
-    [Range(0, 15)]public int DianDongGangSpeed = 0;
 	public AnimatorNameNPC AniName;
 	[Range(0f, 20f)] public float AnimatorTime = 0f;
 	[Range(0.1f, 200f)] public float MvSpeed = 1f;
