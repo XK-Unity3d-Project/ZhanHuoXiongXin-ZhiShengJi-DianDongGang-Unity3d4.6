@@ -255,6 +255,7 @@ public class pcvr : MonoBehaviour {
 		CheckCrossPositionPTwo();
 		CheckIsPlayerActivePcvr();
         ChangeQiNangDouDong();
+        UpdateDianDongGangMoveCmd();
     }
     
 	// Update is called once per frame
@@ -1167,12 +1168,15 @@ QiNangArray[0]            QiNangArray[1]
         if (cmd == AiMark.DianDongGangCmdEnum.Null || speed == 0)
         {
             ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.Stop;
-            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x00;
+            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x10;
             return;
         }
         ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = (byte)(0x10 | speed);
 
-        switch(cmd)
+        ZhouMoveDisA = DianDongGangXingCheng[0];
+        ZhouMoveDisB = DianDongGangXingCheng[1];
+        ZhouMoveDisC = DianDongGangXingCheng[2];
+        switch (cmd)
         {
             case AiMark.DianDongGangCmdEnum.Qian:
                 {
@@ -1263,8 +1267,30 @@ QiNangArray[0]            QiNangArray[1]
     bool IsJiaoZhunDianDongGang = false;
     public int[] DianDongGangXingCheng = new int[3];
     public int[] DianDongGangPosCur = new int[3];
+    float[] TimeLastDianDongGang = new float[3];
     float TimeJiaoZhunDianDongGang = 0;
     const float TimeOutJiaoZhunDianDongGang = 20f; //校准电动缸的最大时间,如果超时则停止校准。
+    void UpdateDianDongGangMoveCmd()
+    {
+        if (!IsJiaoZhunDianDongGang)
+        {
+            return;
+        }
+
+        if (ZhouMoveStateA == (byte)ZhouMoveEnum.TingZhi && Time.time - TimeLastDianDongGang[0] >= 0.1f)
+        {
+            if (IsStartJiLuDianDongGangXingCheng)
+            {
+                ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+            }
+            else
+            {
+                ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.ShunShiZhen;
+            }
+            ZhouMoveDisA = ZhouMoveDisB = ZhouMoveDisC = DianDongGangJiaoZhunXingCheng;
+            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = DianDongGangJiaoZhunSpeed;
+        }
+    }
     public void InitJiaoZhunDianDongGang()
     {
         if (IsJiaoZhunDianDongGang)
@@ -1276,6 +1302,10 @@ QiNangArray[0]            QiNangArray[1]
         DianDongGangJiLuCount = 0;
         DianDongGangJiaoZhunEndCount = 0;
         TimeJiaoZhunDianDongGang = Time.time;
+
+        ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.ShunShiZhen;
+        ZhouMoveDisA = ZhouMoveDisB = ZhouMoveDisC = DianDongGangJiaoZhunXingCheng;
+        ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = DianDongGangJiaoZhunSpeed;
     }
     bool IsStartJiLuDianDongGangXingCheng = false;
     byte DianDongGangJiLuCount = 0; //统计运动到最低点时电动缸的数量.
@@ -1291,7 +1321,7 @@ QiNangArray[0]            QiNangArray[1]
         }
     }
     const int DianDongGangJiaoZhunXingCheng = 2000; //电动缸校准时采用的移动行程.
-    const int DianDongGangJiaoZhunSpeed = 2000; //电动缸校准时采用的移动速度.
+    const byte DianDongGangJiaoZhunSpeed = 0x12; //电动缸校准时采用的移动速度.
     /// <summary>
     /// 当所有电动缸运动到最高点传感器时开始记录电动缸的最大行程.
     /// </summary>
@@ -1495,22 +1525,73 @@ QiNangArray[0]            QiNangArray[1]
             buffer[8] = (byte)QiangZhenDongP1;
             buffer[9] = (byte)QiangZhenDongP2;
         }
-        buffer[11] = (byte)((ZhouMoveDisA >> 8) & 0xff);
-        buffer[12] = (byte)(ZhouMoveDisA & 0xff);
-        buffer[15] = (byte)((ZhouMoveDisB >> 8) & 0xff);
-        buffer[16] = (byte)(ZhouMoveDisB & 0xff);
-        buffer[30] = (byte)((ZhouMoveDisC >> 8) & 0xff);
-        buffer[31] = (byte)(ZhouMoveDisC & 0xff);
-        buffer[34] = (byte)((ZhouMoveDisD >> 8) & 0xff);
-        buffer[35] = (byte)(ZhouMoveDisD & 0xff);
-        buffer[13] = ZhouMoveSpeedA;
-        buffer[17] = ZhouMoveSpeedB;
-        buffer[19] = ZhouMoveSpeedC;
-        buffer[33] = ZhouMoveSpeedD;
-        buffer[10] = (byte)ZhouCmdStateA;
-        buffer[14] = (byte)ZhouCmdStateB;
-        buffer[18] = (byte)ZhouCmdStateC;
-        buffer[32] = (byte)ZhouCmdStateD;
+
+        if (DongGanState == 1 || HardwareCheckCtrl.IsTestHardWare)
+        {
+            buffer[11] = (byte)((ZhouMoveDisA >> 8) & 0xff);
+            buffer[12] = (byte)(ZhouMoveDisA & 0xff);
+            buffer[15] = (byte)((ZhouMoveDisB >> 8) & 0xff);
+            buffer[16] = (byte)(ZhouMoveDisB & 0xff);
+            buffer[30] = (byte)((ZhouMoveDisC >> 8) & 0xff);
+            buffer[31] = (byte)(ZhouMoveDisC & 0xff);
+            buffer[34] = (byte)((ZhouMoveDisD >> 8) & 0xff);
+            buffer[35] = (byte)(ZhouMoveDisD & 0xff);
+            buffer[13] = ZhouMoveSpeedA;
+            buffer[17] = ZhouMoveSpeedB;
+            buffer[19] = ZhouMoveSpeedC;
+            buffer[33] = ZhouMoveSpeedD;
+            buffer[10] = (byte)ZhouCmdStateA;
+            buffer[14] = (byte)ZhouCmdStateB;
+            buffer[18] = (byte)ZhouCmdStateC;
+            buffer[32] = (byte)ZhouCmdStateD;
+        }
+        else
+        {
+            float timeDisVal = 0.1f;
+            byte xiaJiangSpeed = 0x12;
+            if (ZhouTrigger[1] == 0 && ZhouMoveStateA == (byte)ZhouMoveEnum.TingZhi)
+            {
+                if (Time.time - TimeLastDianDongGang[0] < timeDisVal)
+                {
+                    buffer[10] = (byte)ZhouCmdEnum.Stop;
+                }
+                else
+                {
+                    buffer[10] = (byte)ZhouCmdEnum.NiShiZhen;
+                }
+                buffer[11] = (byte)((DianDongGangXingCheng[0] >> 8) & 0xff);
+                buffer[12] = (byte)(DianDongGangXingCheng[0] & 0xff);
+                buffer[13] = xiaJiangSpeed;
+            }
+            if (ZhouTrigger[3] == 0 && ZhouMoveStateB == (byte)ZhouMoveEnum.TingZhi)
+            {
+                if (Time.time - TimeLastDianDongGang[1] < timeDisVal)
+                {
+                    buffer[14] = (byte)ZhouCmdEnum.Stop;
+                }
+                else
+                {
+                    buffer[14] = (byte)ZhouCmdEnum.NiShiZhen;
+                }
+                buffer[15] = (byte)((DianDongGangXingCheng[1] >> 8) & 0xff);
+                buffer[16] = (byte)(DianDongGangXingCheng[1] & 0xff);
+                buffer[17] = xiaJiangSpeed;
+            }
+            if (ZhouTrigger[5] == 0 && ZhouMoveStateC == (byte)ZhouMoveEnum.TingZhi)
+            {
+                if (Time.time - TimeLastDianDongGang[2] < timeDisVal)
+                {
+                    buffer[18] = (byte)ZhouCmdEnum.Stop;
+                }
+                else
+                {
+                    buffer[18] = (byte)ZhouCmdEnum.NiShiZhen;
+                }
+                buffer[30] = (byte)((DianDongGangXingCheng[0] >> 8) & 0xff);
+                buffer[31] = (byte)(DianDongGangXingCheng[0] & 0xff);
+                buffer[19] = xiaJiangSpeed;
+            }
+        }
 
         buffer[20] = 0x00;
         for (int i = 2; i <= 11; i++)
@@ -2383,8 +2464,6 @@ QiNangArray[0]            QiNangArray[1]
     /// <summary>
     /// 当电动缸的限位传感器触发时被回调.
     /// </summary>
-    /// <param name="triggerIndex"></param>
-    /// <param name="btState"></param>
     void OnClickZhouTrigger(byte triggerIndex, ButtonState btState)
     {
         Debug.Log("Unity: -> triggerIndex " + triggerIndex + ", btState " + btState);
@@ -2397,6 +2476,12 @@ QiNangArray[0]            QiNangArray[1]
         if (IsJiaoZhunDianDongGang && IsStartJiLuDianDongGangXingCheng)
         {
             CheckIsEndDianDongGangJiaoZhun(true);
+        }
+
+        if (!IsJiaoZhunDianDongGang)
+        {
+            ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.Stop;
+            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x10;
         }
         if (HardwareCheckCtrl.IsTestHardWare)
         {
@@ -2413,6 +2498,12 @@ QiNangArray[0]            QiNangArray[1]
         {
             JiLuDianDongGangXingCheng(indexVal);
         }
+
+        if (zhouState == (byte)ZhouMoveEnum.TingZhi)
+        {
+            TimeLastDianDongGang[indexVal - 1] = Time.time;
+        }
+
         switch (indexVal)
         {
             case 1:
@@ -2445,7 +2536,7 @@ QiNangArray[0]            QiNangArray[1]
         uint coinP2 = (CoinCurPcvr12 & 0xf0) >> 4;
         //CoinCurPcvr34 = buffer[19];
         //uint coinP3 = CoinCurPcvr34 & 0x0f;
-        //uint coinP4 = (CoinCurPcvr34 & 0xf0) >> 4;
+        //uint coinP4 = (CoinCurPcvr34 & 0xf0) >> 4;key
         //coinP2 = coinP1; //test
         if (IsSubPlayerCoin)
         {
@@ -2636,7 +2727,7 @@ QiNangArray[0]            QiNangArray[1]
 
         if (ZhouMoveStateA != buffer[35])
         {
-            ZhouMoveStateA = buffer[35];
+            OnZhouMoveStateChange(1, buffer[35]);
             if (HardwareCheckCtrl.IsTestHardWare)
             {
                 HardwareCheckCtrl.Instance.SetZhouYunXingState(ZhouMoveStateA, 0);
@@ -2644,7 +2735,7 @@ QiNangArray[0]            QiNangArray[1]
         }
         if (ZhouMoveStateB != buffer[36])
         {
-            ZhouMoveStateB = buffer[36];
+            OnZhouMoveStateChange(2, buffer[36]);
             if (HardwareCheckCtrl.IsTestHardWare)
             {
                 HardwareCheckCtrl.Instance.SetZhouYunXingState(ZhouMoveStateB, 1);
@@ -2652,7 +2743,7 @@ QiNangArray[0]            QiNangArray[1]
         }
         if (ZhouMoveStateC != buffer[37])
         {
-            ZhouMoveStateC = buffer[37];
+            OnZhouMoveStateChange(3, buffer[37]);
             if (HardwareCheckCtrl.IsTestHardWare)
             {
                 HardwareCheckCtrl.Instance.SetZhouYunXingState(ZhouMoveStateC, 2);
@@ -2684,93 +2775,93 @@ QiNangArray[0]            QiNangArray[1]
             }
         }
 
-        if ((buffer[41] & 0x01) == 0x01 && ZhouTrigger[0] == 0)
+        if (buffer[26] == 0xaa && ZhouTrigger[0] == 0)
         {
             ZhouTrigger[0] = 1;
             OnClickZhouTrigger(0, ButtonState.DOWN);
         }
-        else if ((buffer[41] & 0x01) == 0x00 && ZhouTrigger[0] == 1)
+        else if (buffer[26] == 0x55 && ZhouTrigger[0] == 1)
         {
             ZhouTrigger[0] = 0;
             OnClickZhouTrigger(0, ButtonState.UP);
         }
 
-        if ((buffer[41] & 0x02) == 0x02 && ZhouTrigger[1] == 0)
+        if (buffer[27] == 0xaa && ZhouTrigger[1] == 0)
         {
             ZhouTrigger[1] = 1;
             OnClickZhouTrigger(1, ButtonState.DOWN);
         }
-        else if ((buffer[41] & 0x02) == 0x00 && ZhouTrigger[1] == 1)
+        else if (buffer[27] == 0x55 && ZhouTrigger[1] == 1)
         {
             ZhouTrigger[1] = 0;
             OnClickZhouTrigger(1, ButtonState.UP);
         }
 
-        if ((buffer[41] & 0x04) == 0x04 && ZhouTrigger[2] == 0)
+        if (buffer[28] == 0xaa && ZhouTrigger[2] == 0)
         {
             ZhouTrigger[2] = 1;
             OnClickZhouTrigger(2, ButtonState.DOWN);
         }
-        else if ((buffer[41] & 0x04) == 0x00 && ZhouTrigger[2] == 1)
+        else if (buffer[28] == 0x55 && ZhouTrigger[2] == 1)
         {
             ZhouTrigger[2] = 0;
             OnClickZhouTrigger(2, ButtonState.UP);
         }
 
-        if ((buffer[41] & 0x08) == 0x08 && ZhouTrigger[3] == 0)
+        if (buffer[29] == 0xaa && ZhouTrigger[3] == 0)
         {
             ZhouTrigger[3] = 1;
             OnClickZhouTrigger(3, ButtonState.DOWN);
         }
-        else if ((buffer[41] & 0x08) == 0x00 && ZhouTrigger[3] == 1)
+        else if (buffer[29] == 0x55 && ZhouTrigger[3] == 1)
         {
             ZhouTrigger[3] = 0;
             OnClickZhouTrigger(3, ButtonState.UP);
         }
 
-        if ((buffer[41] & 0x10) == 0x10 && ZhouTrigger[4] == 0)
+        if (buffer[30] == 0xaa && ZhouTrigger[4] == 0)
         {
             ZhouTrigger[4] = 1;
             OnClickZhouTrigger(4, ButtonState.DOWN);
         }
-        else if ((buffer[41] & 0x10) == 0x00 && ZhouTrigger[4] == 1)
+        else if (buffer[30] == 0x55 && ZhouTrigger[4] == 1)
         {
             ZhouTrigger[4] = 0;
             OnClickZhouTrigger(4, ButtonState.UP);
         }
 
-        if ((buffer[41] & 0x20) == 0x20 && ZhouTrigger[5] == 0)
+        if (buffer[31] == 0xaa && ZhouTrigger[5] == 0)
         {
             ZhouTrigger[5] = 1;
             OnClickZhouTrigger(5, ButtonState.DOWN);
         }
-        else if ((buffer[41] & 0x20) == 0x00 && ZhouTrigger[5] == 1)
+        else if (buffer[31] == 0x55 && ZhouTrigger[5] == 1)
         {
             ZhouTrigger[5] = 0;
             OnClickZhouTrigger(5, ButtonState.UP);
         }
 
-        if ((buffer[41] & 0x40) == 0x40 && ZhouTrigger[6] == 0)
-        {
-            ZhouTrigger[6] = 1;
-            OnClickZhouTrigger(6, ButtonState.DOWN);
-        }
-        else if ((buffer[41] & 0x40) == 0x00 && ZhouTrigger[6] == 1)
-        {
-            ZhouTrigger[6] = 0;
-            OnClickZhouTrigger(6, ButtonState.UP);
-        }
+        //if ((buffer[41] & 0x40) == 0x40 && ZhouTrigger[6] == 0)
+        //{
+        //    ZhouTrigger[6] = 1;
+        //    OnClickZhouTrigger(6, ButtonState.DOWN);
+        //}
+        //else if ((buffer[41] & 0x40) == 0x00 && ZhouTrigger[6] == 1)
+        //{
+        //    ZhouTrigger[6] = 0;
+        //    OnClickZhouTrigger(6, ButtonState.UP);
+        //}
 
-        if ((buffer[41] & 0x80) == 0x80 && ZhouTrigger[7] == 0)
-        {
-            ZhouTrigger[7] = 1;
-            OnClickZhouTrigger(7, ButtonState.DOWN);
-        }
-        else if ((buffer[41] & 0x80) == 0x00 && ZhouTrigger[7] == 1)
-        {
-            ZhouTrigger[7] = 0;
-            OnClickZhouTrigger(7, ButtonState.UP);
-        }
+        //if ((buffer[41] & 0x80) == 0x80 && ZhouTrigger[7] == 0)
+        //{
+        //    ZhouTrigger[7] = 1;
+        //    OnClickZhouTrigger(7, ButtonState.DOWN);
+        //}
+        //else if ((buffer[41] & 0x80) == 0x00 && ZhouTrigger[7] == 1)
+        //{
+        //    ZhouTrigger[7] = 0;
+        //    OnClickZhouTrigger(7, ButtonState.UP);
+        //}
 
         //test
         //buffer[23] = (byte)(UnityEngine.Random.Range(0, 100) % 16);
