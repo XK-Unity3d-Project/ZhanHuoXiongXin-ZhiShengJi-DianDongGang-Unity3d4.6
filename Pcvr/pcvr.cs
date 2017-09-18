@@ -275,7 +275,11 @@ public class pcvr : MonoBehaviour {
 			}
 		}
 		lastUpTime = Time.realtimeSinceStartup;
-		
+
+        if (Input.GetKeyUp(KeyCode.J))
+        {
+            InitJiaoZhunDianDongGang();
+        }
 		GetMessage();
 		SendMessage();
 	}
@@ -1277,18 +1281,47 @@ QiNangArray[0]            QiNangArray[1]
             return;
         }
 
-        if (ZhouMoveStateA == (byte)ZhouMoveEnum.TingZhi && Time.time - TimeLastDianDongGang[0] >= 0.1f)
+        float disTime = 0.1f;
+        if (ZhouMoveStateA == (byte)ZhouMoveEnum.TingZhi && Time.time - TimeLastDianDongGang[0] >= disTime)
         {
             if (IsStartJiLuDianDongGangXingCheng)
             {
-                ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+                ZhouCmdStateA = ZhouCmdEnum.NiShiZhen;
             }
             else
             {
-                ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.ShunShiZhen;
+                ZhouCmdStateA = ZhouCmdEnum.ShunShiZhen;
             }
-            ZhouMoveDisA = ZhouMoveDisB = ZhouMoveDisC = DianDongGangJiaoZhunXingCheng;
-            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = DianDongGangJiaoZhunSpeed;
+            ZhouMoveDisA = DianDongGangJiaoZhunXingCheng;
+            ZhouMoveSpeedA = DianDongGangJiaoZhunSpeed;
+        }
+
+        if (ZhouMoveStateB == (byte)ZhouMoveEnum.TingZhi && Time.time - TimeLastDianDongGang[1] >= disTime)
+        {
+            if (IsStartJiLuDianDongGangXingCheng)
+            {
+                ZhouCmdStateB = ZhouCmdEnum.NiShiZhen;
+            }
+            else
+            {
+                ZhouCmdStateB = ZhouCmdEnum.ShunShiZhen;
+            }
+            ZhouMoveDisB = DianDongGangJiaoZhunXingCheng;
+            ZhouMoveSpeedB = DianDongGangJiaoZhunSpeed;
+        }
+
+        if (ZhouMoveStateC == (byte)ZhouMoveEnum.TingZhi && Time.time - TimeLastDianDongGang[2] >= disTime)
+        {
+            if (IsStartJiLuDianDongGangXingCheng)
+            {
+                ZhouCmdStateC = ZhouCmdEnum.NiShiZhen;
+            }
+            else
+            {
+                ZhouCmdStateC = ZhouCmdEnum.ShunShiZhen;
+            }
+            ZhouMoveDisC = DianDongGangJiaoZhunXingCheng;
+            ZhouMoveSpeedC = DianDongGangJiaoZhunSpeed;
         }
     }
     public void InitJiaoZhunDianDongGang()
@@ -2068,102 +2101,102 @@ QiNangArray[0]            QiNangArray[1]
         //    return;
         //}
 
-        if (IsJiaoYanHid)
-        {
-            tmpVal = 0x00;
-            //string testStrA = MyCOMDevice.ComThreadClass.ReadByteMsg[30].ToString("X2") + " ";
-            string testStrB = "";
-            string testStrA = "";
-            //for (int i = 0; i < MyCOMDevice.ComThreadClass.ReadByteMsg.Length; i++)
-            //{
-            //    testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-            //}
-            //ScreenLog.Log("readStr: " + testStrA);
+        //if (IsJiaoYanHid)
+        //{
+        //    tmpVal = 0x00;
+        //    //string testStrA = MyCOMDevice.ComThreadClass.ReadByteMsg[30].ToString("X2") + " ";
+        //    string testStrB = "";
+        //    string testStrA = "";
+        //    //for (int i = 0; i < MyCOMDevice.ComThreadClass.ReadByteMsg.Length; i++)
+        //    //{
+        //    //    testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //    //}
+        //    //ScreenLog.Log("readStr: " + testStrA);
 
-            //for (int i = 0; i < JiaoYanDt.Length; i++)
-            //{
-            //    testStrB += JiaoYanDt[i].ToString("X2") + " ";
-            //}
-            //ScreenLog.Log("GameSendDt: " + testStrB);
+        //    //for (int i = 0; i < JiaoYanDt.Length; i++)
+        //    //{
+        //    //    testStrB += JiaoYanDt[i].ToString("X2") + " ";
+        //    //}
+        //    //ScreenLog.Log("GameSendDt: " + testStrB);
 
-            //string testStrC = "";
-            //for (int i = 0; i < JiaoYanDt.Length; i++)
-            //{
-            //    testStrC += JiaoYanMiMa[i].ToString("X2") + " ";
-            //}
-            //ScreenLog.Log("GameSendMiMa: " + testStrC);
+        //    //string testStrC = "";
+        //    //for (int i = 0; i < JiaoYanDt.Length; i++)
+        //    //{
+        //    //    testStrC += JiaoYanMiMa[i].ToString("X2") + " ";
+        //    //}
+        //    //ScreenLog.Log("GameSendMiMa: " + testStrC);
 
-            for (int i = 26; i < 29; i++)
-            {
-                tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-                testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-            }
+        //    for (int i = 26; i < 29; i++)
+        //    {
+        //        tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //        testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //    }
 
-            if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[25])
-            {
-                bool isJiaoYanDtSucceed = false;
-                tmpVal = 0x00;
-                for (int i = 30; i < 33; i++)
-                {
-                    tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
-                }
+        //    if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[25])
+        //    {
+        //        bool isJiaoYanDtSucceed = false;
+        //        tmpVal = 0x00;
+        //        for (int i = 30; i < 33; i++)
+        //        {
+        //            tmpVal ^= MyCOMDevice.ComThreadClass.ReadByteMsg[i];
+        //        }
 
-                //校验2...
-                if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[29]
-                    && (JiaoYanDt[1] & 0xef) == MyCOMDevice.ComThreadClass.ReadByteMsg[30]
-                    && (JiaoYanDt[2] & 0xfe) == MyCOMDevice.ComThreadClass.ReadByteMsg[31]
-                    && (JiaoYanDt[3] | 0x28) == MyCOMDevice.ComThreadClass.ReadByteMsg[32])
-                {
-                    isJiaoYanDtSucceed = true;
-                }
+        //        //校验2...
+        //        if (tmpVal == MyCOMDevice.ComThreadClass.ReadByteMsg[29]
+        //            && (JiaoYanDt[1] & 0xef) == MyCOMDevice.ComThreadClass.ReadByteMsg[30]
+        //            && (JiaoYanDt[2] & 0xfe) == MyCOMDevice.ComThreadClass.ReadByteMsg[31]
+        //            && (JiaoYanDt[3] | 0x28) == MyCOMDevice.ComThreadClass.ReadByteMsg[32])
+        //        {
+        //            isJiaoYanDtSucceed = true;
+        //        }
 
-                JiaoYanCheckCount++;
-                if (isJiaoYanDtSucceed)
-                {
-                    //JiaMiJiaoYanSucceed
-                    OnEndJiaoYanIO(JIAOYANENUM.SUCCEED);
-                    //ScreenLog.Log("JMJYCG...");
-                }
-                else
-                {
-                    if (JiaoYanCheckCount > 0)
-                    {
-                        OnEndJiaoYanIO(JIAOYANENUM.FAILED);
-                    }
-                    testStrA = "";
-                    for (int i = 0; i < 35; i++)
-                    {
-                        testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-                    }
+        //        JiaoYanCheckCount++;
+        //        if (isJiaoYanDtSucceed)
+        //        {
+        //            //JiaMiJiaoYanSucceed
+        //            OnEndJiaoYanIO(JIAOYANENUM.SUCCEED);
+        //            //ScreenLog.Log("JMJYCG...");
+        //        }
+        //        else
+        //        {
+        //            if (JiaoYanCheckCount > 0)
+        //            {
+        //                OnEndJiaoYanIO(JIAOYANENUM.FAILED);
+        //            }
+        //            testStrA = "";
+        //            for (int i = 0; i < 35; i++)
+        //            {
+        //                testStrA += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //            }
 
-                    testStrB = "";
-                    for (int i = 29; i < 33; i++)
-                    {
-                        testStrB += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
-                    }
+        //            testStrB = "";
+        //            for (int i = 29; i < 33; i++)
+        //            {
+        //                testStrB += MyCOMDevice.ComThreadClass.ReadByteMsg[i].ToString("X2") + " ";
+        //            }
 
-                    string testStrD = "";
-                    for (int i = 0; i < 4; i++)
-                    {
-                        testStrD += JiaoYanDt[i].ToString("X2") + " ";
-                    }
-                    ScreenLog.Log("JiaoYan2 ShiBai...");
-                    ScreenLog.Log("ReadByte[0 - 35] " + testStrA);
-                    ScreenLog.Log("ReadByte[29 - 32] " + testStrB);
-                    ScreenLog.Log("SendByte[25 - 28] " + testStrD);
-                    ScreenLog.LogError("校验数据错误!");
-                }
-            }
-            else
-            {
-                ScreenLog.Log("JiaoYan1 ShiBai...");
-                testStrB = "byte[25] " + MyCOMDevice.ComThreadClass.ReadByteMsg[25].ToString("X2") + " "
-                    + ", tmpVal " + tmpVal.ToString("X2");
-                ScreenLog.Log("ReadByte[25 - 28] " + testStrA);
-                ScreenLog.Log(testStrB);
-                ScreenLog.LogError("ReadByte[25] was wrong!");
-            }
-        }
+        //            string testStrD = "";
+        //            for (int i = 0; i < 4; i++)
+        //            {
+        //                testStrD += JiaoYanDt[i].ToString("X2") + " ";
+        //            }
+        //            ScreenLog.Log("JiaoYan2 ShiBai...");
+        //            ScreenLog.Log("ReadByte[0 - 35] " + testStrA);
+        //            ScreenLog.Log("ReadByte[29 - 32] " + testStrB);
+        //            ScreenLog.Log("SendByte[25 - 28] " + testStrD);
+        //            ScreenLog.LogError("校验数据错误!");
+        //        }
+        //    }
+        //    else
+        //    {
+        //        ScreenLog.Log("JiaoYan1 ShiBai...");
+        //        testStrB = "byte[25] " + MyCOMDevice.ComThreadClass.ReadByteMsg[25].ToString("X2") + " "
+        //            + ", tmpVal " + tmpVal.ToString("X2");
+        //        ScreenLog.Log("ReadByte[25 - 28] " + testStrA);
+        //        ScreenLog.Log(testStrB);
+        //        ScreenLog.LogError("ReadByte[25] was wrong!");
+        //    }
+        //}
 
         //	switch (MyCOMDevice.PcvrComSt) {
         //	case PcvrComState.TanKeFangXiangZhenDong:
@@ -2471,6 +2504,7 @@ QiNangArray[0]            QiNangArray[1]
             !IsStartJiLuDianDongGangXingCheng &&
             triggerIndex % 2 == 0)
         {
+            //上传感器响应.
             CheckIsStartJiLuDianDongGangXingCheng();
         }
         if (IsJiaoZhunDianDongGang && IsStartJiLuDianDongGangXingCheng)
