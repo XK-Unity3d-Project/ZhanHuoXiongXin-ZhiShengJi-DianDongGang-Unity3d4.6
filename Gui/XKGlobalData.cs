@@ -132,6 +132,7 @@ public class XKGlobalData {
                     }
                     ZhouMaiChongValMax[i] = Convert.ToInt32(val);
                 }
+                pcvr.GetInstance().DianDongGangXingCheng = ZhouMaiChongValMax;
             }
             return Instance;
         }

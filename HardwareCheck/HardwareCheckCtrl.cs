@@ -460,6 +460,7 @@ public class HardwareCheckCtrl : MonoBehaviour
     {
         pcvr.GetInstance().InitJiaoZhunDianDongGang();
     }
+    int[] DianDongGnagMoveDis = new int[4];
     public void OnDragZhouYunXingShuLiang()
     {
         if (UIProgressBar.current == null)
@@ -473,30 +474,35 @@ public class HardwareCheckCtrl : MonoBehaviour
             case HardwareSliderDt.SliderEnum.YunXingShuLiang1:
                 {
                     ZhouYunXingShuLiangLb[0].text = val.ToString();
+                    DianDongGnagMoveDis[0] = val;
                     pcvr.GetInstance().ZhouMoveDisA = val;
                     break;
                 }
             case HardwareSliderDt.SliderEnum.YunXingShuLiang2:
                 {
                     ZhouYunXingShuLiangLb[1].text = val.ToString();
+                    DianDongGnagMoveDis[1] = val;
                     pcvr.GetInstance().ZhouMoveDisB = val;
                     break;
                 }
             case HardwareSliderDt.SliderEnum.YunXingShuLiang3:
                 {
                     ZhouYunXingShuLiangLb[2].text = val.ToString();
+                    DianDongGnagMoveDis[2] = val;
                     pcvr.GetInstance().ZhouMoveDisC = val;
                     break;
                 }
             case HardwareSliderDt.SliderEnum.YunXingShuLiang4:
                 {
                     ZhouYunXingShuLiangLb[3].text = val.ToString();
+                    DianDongGnagMoveDis[3] = val;
                     pcvr.GetInstance().ZhouMoveDisD = val;
                     break;
                 }
         }
     }
 
+    byte[] DianDongGangMoveSpeed = new byte[4];
     public void OnDragZhouYunXingSpeed()
     {
         if (UIProgressBar.current == null)
@@ -530,6 +536,7 @@ public class HardwareCheckCtrl : MonoBehaviour
         }
 
         byte zhouIndex = (byte)((int)SliderDt.SliderState - 4);
+        DianDongGangMoveSpeed[zhouIndex] = (byte)val;
         pcvr.GetInstance().SetZhouMoveSpeed(zhouIndex, (byte)val);
     }
     /// <summary>
@@ -591,30 +598,32 @@ public class HardwareCheckCtrl : MonoBehaviour
                     break;
                 }
         }
-
+        
+        pcvr.GetInstance().SetZhouMoveSpeed((byte)(groupVal - 1), DianDongGangMoveSpeed[groupVal - 1]);
         switch (groupVal)
         {
             case 1:
                 {
-                    pcvr.GetInstance().ZhouCmdStateA = zhouCmd;
+                    pcvr.GetInstance().ZhouMoveDisA = DianDongGnagMoveDis[0];
                     break;
                 }
             case 2:
                 {
-                    pcvr.GetInstance().ZhouCmdStateB = zhouCmd;
+                    pcvr.GetInstance().ZhouMoveDisB = DianDongGnagMoveDis[1];
                     break;
                 }
             case 3:
                 {
-                    pcvr.GetInstance().ZhouCmdStateC = zhouCmd;
+                    pcvr.GetInstance().ZhouMoveDisC = DianDongGnagMoveDis[2];
                     break;
                 }
             case 4:
                 {
-                    pcvr.GetInstance().ZhouCmdStateD = zhouCmd;
+                    pcvr.GetInstance().ZhouMoveDisD = DianDongGnagMoveDis[3];
                     break;
                 }
         }
+        pcvr.GetInstance().SetZhouCmdState(groupVal - 1, zhouCmd, DianDongGangMoveSpeed[groupVal - 1]);
     }
 
     public void OnZhouTriggerActive(byte triggerIndex, ButtonState btState)

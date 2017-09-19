@@ -133,15 +133,15 @@ public class JiFenJieMianCtrl : MonoBehaviour {
 			pcvr.GetInstance().CloseFangXiangPanPower(PlayerEnum.Null);
 		}
 
-		Invoke("DelayForceRestartComPort", 0.5f);
+		//Invoke("DelayForceRestartComPort", 0.5f);
 	}
 
-	void DelayForceRestartComPort()
-	{
-		if (pcvr.bIsHardWare && MyCOMDevice.GetInstance() != null) {
-			MyCOMDevice.GetInstance().ForceRestartComPort();
-		}
-	}
+	//void DelayForceRestartComPort()
+	//{
+	//	if (pcvr.bIsHardWare && MyCOMDevice.GetInstance() != null) {
+	//		MyCOMDevice.GetInstance().ForceRestartComPort();
+	//	}
+	//}
 
 	public void StopJiFenTime()
 	{

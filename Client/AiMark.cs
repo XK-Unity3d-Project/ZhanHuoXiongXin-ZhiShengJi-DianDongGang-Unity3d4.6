@@ -54,7 +54,7 @@ public class AiMark : MonoBehaviour
 	bool IsInitMarkInfo;
 	void Start()
 	{
-		bool isOutputError = false;
+        bool isOutputError = false;
 //		if (CameraAimArray.Length > 0) {
 //			if (PlayerAni != ZhiShengJiAction.Null || TimePlayerAni <= 0f) {
 //				Debug.Log("CameraAimArray -> PlayerAni or TimePlayerAni was wrong!");
@@ -114,6 +114,11 @@ public class AiMark : MonoBehaviour
 //		Debug.Log("AiMark::OnTriggerEnter -> AniName "+PlayerAni);
 //		Debug.Log("AiMark::OnTriggerEnter -> MarkName "+gameObject.name);
 		playerScript.PlayZhuJiaoMarkAction(this);
+        if (playerScript.PlayerSt == PlayerTypeEnum.FeiJi)
+        {
+            Debug.Log("cmd " + DianDongGCmd + ", DianDongGangSpeed " + DianDongGangSpeed);
+            pcvr.GetInstance().DoPlayerPathDianDongGangCmd(DianDongGCmd, DianDongGangSpeed);
+        }
 	}
 
 	void OnDrawGizmosSelected()

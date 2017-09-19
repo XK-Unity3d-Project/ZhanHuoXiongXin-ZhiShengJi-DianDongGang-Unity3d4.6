@@ -22,7 +22,7 @@ public class MyCOMDevice : MonoBehaviour
 	 * 2.PcvrComSt == TanKeGunZhenDong -> 测试坦克枪震动等级逻辑,飞机机台采用枪震动通讯(动感星虫危机硬件通讯-吉普车).
 	 * 3.联机坦克有可能和联机直升机采用同一块IO板完成.
 	 */
-	public static PcvrComState PcvrComSt = PcvrComState.TanKeFangXiangZhenDong;
+	public static PcvrComState PcvrComSt = PcvrComState.TanKeGunZhenDong;
 	/**
 	 * PcvrGameSt == TanKeFangXiangZhenDong -> 在设置界面的准星校准时采用方向盘UI校准.
 	 * PcvrGameSt == TanKeGunZhenDong -> 在设置界面的准星校准时采用枪震动UI校准.
@@ -148,7 +148,58 @@ public class MyCOMDevice : MonoBehaviour
 			try
 			{
 				IsReadComMsg = false;
-				_SerialPort.Write(WriteByteMsg, 0, WriteByteMsg.Length);
+                for (int i = 0; i < pcvr.RecordZhouMoveState.Length; i++)
+                {
+                    if (pcvr.RecordZhouMoveState[i] == (byte)pcvr.ZhouMoveEnum.TingZhi)
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                {
+                                    WriteByteMsg[10] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                                    break;
+                                }
+                            case 1:
+                                {
+                                    Debug.Log("****************");
+                                    WriteByteMsg[14] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                                    break;
+                                }
+                            case 2:
+                                {
+                                    WriteByteMsg[18] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                                    break;
+                                }
+                        }
+                        pcvr.RecordZhouMoveState[i] = (byte)pcvr.ZhouMoveEnum.WuYiYi;
+                    }
+                }
+                for (int i = 0; i < pcvr.RecordZhouCmdChanged.Length; i++)
+                {
+                    if (pcvr.RecordZhouCmdChanged[i] == 0x01)
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                {
+                                    WriteByteMsg[10] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                                    break;
+                                }
+                            case 1:
+                                {
+                                    WriteByteMsg[14] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                                    break;
+                                }
+                            case 2:
+                                {
+                                    WriteByteMsg[18] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                                    break;
+                                }
+                        }
+                        pcvr.RecordZhouCmdChanged[i] = 0x00;
+                    }
+                }
+                _SerialPort.Write(WriteByteMsg, 0, WriteByteMsg.Length);
 //				_SerialPort.DiscardOutBuffer();
 				WriteCount++;
 			}
@@ -262,48 +313,48 @@ public class MyCOMDevice : MonoBehaviour
 		}
 	}
 
-	void RestartComPort()
-	{
-		if (!ComThreadClass.IsReadMsgComTimeOut) {
-			return;
-		}
-		CountRestartCom++;
-		CountOpenCom++;
-		ScreenLog.Log("Restart ComPort "+ComThreadClass.ComPortName+", time "+(int)Time.realtimeSinceStartup);
-		ScreenLog.Log("CountRestartCom: "+CountRestartCom);
-		StartCoroutine(OpenComThread());
-	}
+	//void RestartComPort()
+	//{
+	//	if (!ComThreadClass.IsReadMsgComTimeOut) {
+	//		return;
+	//	}
+	//	CountRestartCom++;
+	//	CountOpenCom++;
+	//	ScreenLog.Log("Restart ComPort "+ComThreadClass.ComPortName+", time "+(int)Time.realtimeSinceStartup);
+	//	ScreenLog.Log("CountRestartCom: "+CountRestartCom);
+	//	StartCoroutine(OpenComThread());
+	//}
 
-	void CheckTimeOutReadMsg()
-	{
-		ReadMsgTimeOutVal += TimeUnitDelta;
-		float timeMinVal = CountOpenCom < 6 ? 2f : 4f;
-		if (CountOpenCom > 20) {
-			timeMinVal = 10f;
-		}
+	//void CheckTimeOutReadMsg()
+	//{
+	//	ReadMsgTimeOutVal += TimeUnitDelta;
+	//	float timeMinVal = CountOpenCom < 6 ? 2f : 4f;
+	//	if (CountOpenCom > 20) {
+	//		timeMinVal = 10f;
+	//	}
 
-		if (ReadMsgTimeOutVal > timeMinVal) {
-			ScreenLog.Log("CheckTimeOutReadMsg -> The app should restart to open the COM!");
-			ComThreadClass.IsReadMsgComTimeOut = true;
-			RestartComPort();
-		}
-	}
+	//	if (ReadMsgTimeOutVal > timeMinVal) {
+	//		ScreenLog.Log("CheckTimeOutReadMsg -> The app should restart to open the COM!");
+	//		ComThreadClass.IsReadMsgComTimeOut = true;
+	//		RestartComPort();
+	//	}
+	//}
 
 	/**
 	 * 强制重启串口通讯,目的是清理串口缓存信息.
 	 */
-	public void ForceRestartComPort()
-	{
-        if (!pcvr.bIsHardWare)
-        {
-            return;
-        }
-        //ComThreadClass.IsReadMsgComTimeOut = true;
-        //RestartComPort();
-    }
+	//public void ForceRestartComPort()
+	//{
+ //       if (!pcvr.bIsHardWare)
+ //       {
+ //           return;
+ //       }
+ //       //ComThreadClass.IsReadMsgComTimeOut = true;
+ //       //RestartComPort();
+ //   }
 
-	void Update()
-	{
+	//void Update()
+	//{
 		//test...
 //		if (Input.GetKeyUp(KeyCode.T)) {
 //			ForceRestartComPort();
@@ -326,7 +377,7 @@ public class MyCOMDevice : MonoBehaviour
 		//}
 		//TimeLastVal = Time.realtimeSinceStartup;
 		//CheckTimeOutReadMsg();
-	}
+	//}
 
 //	void OnGUI()
 //	{
@@ -348,6 +399,6 @@ public class MyCOMDevice : MonoBehaviour
 		Debug.Log("OnApplicationQuit...Com");
 		XkGameCtrl.IsGameOnQuit = true;
 		ComThreadClass.CloseComPort();
-		Invoke("CloseComThread", 2f);
+		//Invoke("CloseComThread", 2f);
 	}
 }
