@@ -256,7 +256,7 @@ public class pcvr : MonoBehaviour {
 		CheckIsPlayerActivePcvr();
         ChangeQiNangDouDong();
         UpdateDianDongGangMoveCmd();
-        CheckZhouMoveState();
+        //CheckZhouMoveState();
     }
     
 	// Update is called once per frame
@@ -284,10 +284,7 @@ public class pcvr : MonoBehaviour {
 		GetMessage();
 		SendMessage();
 	}
-
-//	static byte ReadHead_1 = 0x01;
-//	static byte ReadHead_2 = 0x55;
-	public byte WriteHead_1 = 0x02;
+	public byte WriteHead_1 = 0x01;
 	const byte WriteHead_2 = 0x55;
 	const byte WriteEnd_1 = 0x0d;
 	const byte WriteEnd_2 = 0x0a;
@@ -297,7 +294,6 @@ public class pcvr : MonoBehaviour {
     const byte EndRead_2 = 0x42;
     const byte EndRead_3 = 0x43;
     const byte EndRead_4 = 0x44;
-
 	public static void CheckMovePlayerZuoYi()
 	{
 		bool isMoveZuoYiP1 = false;
@@ -1177,8 +1173,8 @@ QiNangArray[0]            QiNangArray[1]
 
         if (cmd == AiMark.DianDongGangCmdEnum.Null || speed == 0)
         {
-            ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.Stop;
-            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x10;
+            //ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.Stop;
+            //ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x10;
             return;
         }
         ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = (byte)(0x10 | speed);
@@ -1188,21 +1184,21 @@ QiNangArray[0]            QiNangArray[1]
         {
             case AiMark.DianDongGangCmdEnum.Qian:
                 {
-                    SetZhouCmdState(0, ZhouCmdEnum.ShunShiZhen, (byte)speed);
-                    SetZhouCmdState(1, ZhouCmdEnum.ShunShiZhen, (byte)speed);
-                    SetZhouCmdState(2, ZhouCmdEnum.NiShiZhen, (byte)speed);
+                    SetZhouCmdState(0, ZhouCmdEnum.NiShiZhen, (byte)speed);
+                    SetZhouCmdState(1, ZhouCmdEnum.NiShiZhen, (byte)speed);
+                    SetZhouCmdState(2, ZhouCmdEnum.ShunShiZhen, (byte)speed);
                     break;
                 }
             case AiMark.DianDongGangCmdEnum.Hou:
                 {
-                    SetZhouCmdState(0, ZhouCmdEnum.NiShiZhen, (byte)speed);
+                    SetZhouCmdState(0, ZhouCmdEnum.ShunShiZhen, (byte)speed);
                     SetZhouCmdState(1, ZhouCmdEnum.ShunShiZhen, (byte)speed);
                     SetZhouCmdState(2, ZhouCmdEnum.NiShiZhen, (byte)speed);
                     break;
                 }
             case AiMark.DianDongGangCmdEnum.Zuo:
                 {
-                    SetZhouCmdState(0, ZhouCmdEnum.ShunShiZhen, (byte)speed);
+                    SetZhouCmdState(0, ZhouCmdEnum.NiShiZhen, (byte)speed);
                     SetZhouCmdState(1, ZhouCmdEnum.ShunShiZhen, (byte)speed);
                     SetZhouCmdState(2, ZhouCmdEnum.NiShiZhen, (byte)speed);
                     break;
@@ -1292,10 +1288,21 @@ QiNangArray[0]            QiNangArray[1]
     public byte[] RecordZhouMoveSpeed = new byte[3];
     public static byte[] RecordZhouMoveState = new byte[3] {0x55, 0x55, 0x55};
     public static byte[] RecordZhouCmdChanged = new byte[4];
-    public void SetZhouCmdState(int indexVal, ZhouCmdEnum cmd, byte moveSpeed)
+    float TimeLastChangeZhouCmd;
+    IEnumerator ResetZhouCmdState(int indexVal, ZhouCmdEnum cmd, byte moveSpeed, int moveDis = 0xffff)
     {
+        yield return new WaitForSeconds(0.25f);
+        TimeLastChangeZhouCmd = Time.time;
+    }
+    public void SetZhouCmdState(int indexVal, ZhouCmdEnum cmd, byte moveSpeed, int moveDis = 0xffff)
+    {
+        TimeLastChangeZhouCmd = Time.time;
         if (cmd != ZhouCmdEnum.Stop)
         {
+            if (RecordZhouCmdState[indexVal] != cmd)
+            {
+                StartCoroutine(ResetZhouCmdState(indexVal, cmd, moveSpeed, moveDis));
+            }
             RecordZhouCmdState[indexVal] = cmd;
             RecordZhouMoveSpeed[indexVal] = (byte)(0x10 | moveSpeed);
         }
@@ -1306,21 +1313,25 @@ QiNangArray[0]            QiNangArray[1]
             case 0:
                 {
                     ZhouCmdStateA = cmd;
+                    ZhouMoveDisA = moveDis;
                     break;
                 }
             case 1:
                 {
                     ZhouCmdStateB = cmd;
+                    ZhouMoveDisB = moveDis;
                     break;
                 }
             case 2:
                 {
                     ZhouCmdStateC = cmd;
+                    ZhouMoveDisC = moveDis;
                     break;
                 }
             case 3:
                 {
                     ZhouCmdStateD = cmd;
+                    ZhouMoveDisD = moveDis;
                     break;
                 }
         }
@@ -1331,22 +1342,22 @@ QiNangArray[0]            QiNangArray[1]
         float disTime = 0.05f;
         if (!IsJiaoZhunDianDongGang)
         {
-            if (ZhouMoveStateA == (byte)ZhouMoveEnum.TingZhi)
-            {
-                if (Time.time - TimeLastDianDongGang[0] >= disTime)
-                {
-                    ZhouCmdStateA = RecordZhouCmdState[0];
-                    ZhouMoveDisA = DianDongGangXingCheng[0];
-                    ZhouMoveSpeedA = RecordZhouMoveSpeed[0];
-                }
-                else
-                {
-                    RecordZhouCmdState[0] = ZhouCmdStateA;
-                    RecordZhouMoveSpeed[0] = ZhouMoveSpeedA;
-                    ZhouCmdStateA = ZhouCmdEnum.Stop;
-                    ZhouMoveSpeedA = 0x10;
-                }
-            }
+            //if (ZhouMoveStateA == (byte)ZhouMoveEnum.TingZhi)
+            //{
+            //    if (Time.time - TimeLastDianDongGang[0] >= disTime)
+            //    {
+            //        ZhouCmdStateA = RecordZhouCmdState[0];
+            //        ZhouMoveDisA = DianDongGangXingCheng[0];
+            //        ZhouMoveSpeedA = RecordZhouMoveSpeed[0];
+            //    }
+            //    else
+            //    {
+            //        RecordZhouCmdState[0] = ZhouCmdStateA;
+            //        RecordZhouMoveSpeed[0] = ZhouMoveSpeedA;
+            //        ZhouCmdStateA = ZhouCmdEnum.Stop;
+            //        ZhouMoveSpeedA = 0x10;
+            //    }
+            //}
 
             if (ZhouMoveStateB == (byte)ZhouMoveEnum.TingZhi)
             {
@@ -1731,22 +1742,41 @@ QiNangArray[0]            QiNangArray[1]
 
         if (DongGanState == 1 || HardwareCheckCtrl.IsTestHardWare)
         {
-            buffer[11] = (byte)((ZhouMoveDisA >> 8) & 0xff);
-            buffer[12] = (byte)(ZhouMoveDisA & 0xff);
-            buffer[15] = (byte)((ZhouMoveDisB >> 8) & 0xff);
-            buffer[16] = (byte)(ZhouMoveDisB & 0xff);
-            buffer[30] = (byte)((ZhouMoveDisC >> 8) & 0xff);
-            buffer[31] = (byte)(ZhouMoveDisC & 0xff);
-            buffer[34] = (byte)((ZhouMoveDisD >> 8) & 0xff);
-            buffer[35] = (byte)(ZhouMoveDisD & 0xff);
+            buffer[11] = 0xff;
+            buffer[12] = 0xff;
+            buffer[15] = 0xff;
+            buffer[16] = 0xff;
+            buffer[30] = 0xff;
+            buffer[31] = 0xff;
+            buffer[34] = 0xff;
+            buffer[35] = 0xff;
+            //buffer[11] = (byte)((ZhouMoveDisA >> 8) & 0xff);
+            //buffer[12] = (byte)(ZhouMoveDisA & 0xff);
+            //buffer[15] = (byte)((ZhouMoveDisB >> 8) & 0xff);
+            //buffer[16] = (byte)(ZhouMoveDisB & 0xff);
+            //buffer[30] = (byte)((ZhouMoveDisC >> 8) & 0xff);
+            //buffer[31] = (byte)(ZhouMoveDisC & 0xff);
+            //buffer[34] = (byte)((ZhouMoveDisD >> 8) & 0xff);
+            //buffer[35] = (byte)(ZhouMoveDisD & 0xff);
             buffer[13] = ZhouMoveSpeedA;
             buffer[17] = ZhouMoveSpeedB;
             buffer[19] = ZhouMoveSpeedC;
             buffer[33] = ZhouMoveSpeedD;
-            buffer[10] = (byte)ZhouCmdStateA;
-            buffer[14] = (byte)ZhouCmdStateB;
-            buffer[18] = (byte)ZhouCmdStateC;
-            buffer[32] = (byte)ZhouCmdStateD;
+            if (Time.time - TimeLastChangeZhouCmd < 0.1f)
+            {
+                buffer[10] = (byte)ZhouCmdEnum.Stop;
+                buffer[14] = (byte)ZhouCmdEnum.Stop;
+                buffer[18] = (byte)ZhouCmdEnum.Stop;
+                buffer[32] = (byte)ZhouCmdEnum.Stop;
+            }
+            else
+            {
+                buffer[10] = (byte)ZhouCmdStateA;
+                buffer[14] = (byte)ZhouCmdStateB;
+                buffer[18] = (byte)ZhouCmdStateC;
+                buffer[32] = (byte)ZhouCmdStateD;
+            }
+            //Debug.Log("cmdA " + ZhouCmdStateA);
         }
         else
         {
@@ -2672,7 +2702,7 @@ QiNangArray[0]            QiNangArray[1]
     /// </summary>
     void OnClickZhouTrigger(byte triggerIndex, ButtonState btState)
     {
-        Debug.Log("Unity: -> triggerIndex " + triggerIndex + ", btState " + btState);
+        //Debug.Log("Unity: -> triggerIndex " + triggerIndex + ", btState " + btState);
         if (IsJiaoZhunDianDongGang &&
             !IsStartJiLuDianDongGangXingCheng &&
             triggerIndex % 2 == 0)
@@ -2685,11 +2715,15 @@ QiNangArray[0]            QiNangArray[1]
             CheckIsEndDianDongGangJiaoZhun(true);
         }
 
-        if (!IsJiaoZhunDianDongGang)
-        {
-            ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.Stop;
-            ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x10;
-        }
+        //if (!IsJiaoZhunDianDongGang)
+        //{
+            //if (btState == ButtonState.DOWN && triggerIndex < 2)
+            //{
+            //    ZhouCmdStateA = ZhouCmdEnum.Stop;
+            //}
+            //ZhouCmdStateA = ZhouCmdStateB = ZhouCmdStateC = ZhouCmdEnum.Stop;
+            //ZhouMoveSpeedA = ZhouMoveSpeedB = ZhouMoveSpeedC = 0x10;
+        //}
         if (HardwareCheckCtrl.IsTestHardWare)
         {
             HardwareCheckCtrl.Instance.OnZhouTriggerActive(triggerIndex, btState);
@@ -2699,7 +2733,7 @@ QiNangArray[0]            QiNangArray[1]
     {
         for (int i = 0; i < TimeLastDianDongGang.Length; i++)
         {
-            if (Time.time - TimeLastDianDongGang[i] >= 2f)
+            if (Time.time - TimeLastDianDongGang[i] >= 10f)
             {
                 OnZhouMoveStateChange((byte)(i + 1), (byte)ZhouMoveEnum.TingZhi);
             }
@@ -2722,7 +2756,7 @@ QiNangArray[0]            QiNangArray[1]
             RecordZhouMoveState[indexVal - 1] = zhouState;
             //if (indexVal == 2)
             //{
-                Debug.Log("222222222222222222222**************** indexVal " + indexVal);
+                //Debug.Log("222222222222222222222**************** indexVal " + indexVal);
             //}
         }
 

@@ -5,7 +5,16 @@ using System.Diagnostics;
 /// </summary>
 public class HardwareCheckCtrl : MonoBehaviour
 {
-	public PcvrComState PcvrComSt;
+    public AiMark.DianDongGangCmdEnum DianDongGCmd = AiMark.DianDongGangCmdEnum.Null;
+    public AiMark.DianDongGangCmdEnum DianDongGCmdA = AiMark.DianDongGangCmdEnum.Null;
+    /// <summary>
+    /// 电动缸运行速度.
+    /// 0 -> 停止.
+    /// [1, 15] -> 速度.
+    /// </summary>
+    [Range(0, 15)]
+    public int DianDongGangSpeed = 0;
+    public PcvrComState PcvrComSt;
     public UILabel[] ZhouYunXingLb;
     public UILabel[] ZhouZhunBeiLb;
     public GameObject[] ZhouTriggerObj;
@@ -86,7 +95,17 @@ public class HardwareCheckCtrl : MonoBehaviour
 	// Update is called once per frame
 	void Update()
 	{
-		BiZhiLable[0].text = XKGlobalData.CoinPlayerOne.ToString();
+        if (Input.GetKeyUp(KeyCode.T))
+        {
+            UnityEngine.Debug.Log("cmd " + DianDongGCmd + ", DianDongGangSpeed " + DianDongGangSpeed);
+            pcvr.GetInstance().DoPlayerPathDianDongGangCmd(DianDongGCmd, DianDongGangSpeed);
+        }
+        if (Input.GetKeyUp(KeyCode.I))
+        {
+            UnityEngine.Debug.Log("cmdA " + DianDongGCmdA + ", DianDongGangSpeed " + DianDongGangSpeed);
+            pcvr.GetInstance().DoPlayerPathDianDongGangCmd(DianDongGCmdA, DianDongGangSpeed);
+        }
+        BiZhiLable[0].text = XKGlobalData.CoinPlayerOne.ToString();
 		BiZhiLable[1].text = XKGlobalData.CoinPlayerTwo.ToString();
 		QiangPosLable[0].text = "X-> "+pcvr.MousePositionP1.x.ToString();
 		QiangPosLable[1].text = "Y-> "+pcvr.MousePositionP1.y.ToString();
@@ -623,7 +642,7 @@ public class HardwareCheckCtrl : MonoBehaviour
                     break;
                 }
         }
-        pcvr.GetInstance().SetZhouCmdState(groupVal - 1, zhouCmd, DianDongGangMoveSpeed[groupVal - 1]);
+        pcvr.GetInstance().SetZhouCmdState(groupVal - 1, zhouCmd, DianDongGangMoveSpeed[groupVal - 1], DianDongGnagMoveDis[groupVal - 1]);
     }
 
     public void OnZhouTriggerActive(byte triggerIndex, ButtonState btState)

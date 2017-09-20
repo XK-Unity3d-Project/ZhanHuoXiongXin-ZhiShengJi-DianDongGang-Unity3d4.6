@@ -148,57 +148,56 @@ public class MyCOMDevice : MonoBehaviour
 			try
 			{
 				IsReadComMsg = false;
-                for (int i = 0; i < pcvr.RecordZhouMoveState.Length; i++)
-                {
-                    if (pcvr.RecordZhouMoveState[i] == (byte)pcvr.ZhouMoveEnum.TingZhi)
-                    {
-                        switch (i)
-                        {
-                            case 0:
-                                {
-                                    WriteByteMsg[10] = (byte)pcvr.ZhouMoveEnum.TingZhi;
-                                    break;
-                                }
-                            case 1:
-                                {
-                                    Debug.Log("****************");
-                                    WriteByteMsg[14] = (byte)pcvr.ZhouMoveEnum.TingZhi;
-                                    break;
-                                }
-                            case 2:
-                                {
-                                    WriteByteMsg[18] = (byte)pcvr.ZhouMoveEnum.TingZhi;
-                                    break;
-                                }
-                        }
-                        pcvr.RecordZhouMoveState[i] = (byte)pcvr.ZhouMoveEnum.WuYiYi;
-                    }
-                }
-                for (int i = 0; i < pcvr.RecordZhouCmdChanged.Length; i++)
-                {
-                    if (pcvr.RecordZhouCmdChanged[i] == 0x01)
-                    {
-                        switch (i)
-                        {
-                            case 0:
-                                {
-                                    WriteByteMsg[10] = (byte)pcvr.ZhouMoveEnum.TingZhi;
-                                    break;
-                                }
-                            case 1:
-                                {
-                                    WriteByteMsg[14] = (byte)pcvr.ZhouMoveEnum.TingZhi;
-                                    break;
-                                }
-                            case 2:
-                                {
-                                    WriteByteMsg[18] = (byte)pcvr.ZhouMoveEnum.TingZhi;
-                                    break;
-                                }
-                        }
-                        pcvr.RecordZhouCmdChanged[i] = 0x00;
-                    }
-                }
+                //for (int i = 0; i < pcvr.RecordZhouMoveState.Length; i++)
+                //{
+                //    if (pcvr.RecordZhouMoveState[i] == (byte)pcvr.ZhouMoveEnum.TingZhi)
+                //    {
+                //        switch (i)
+                //        {
+                //            case 0:
+                //                {
+                //                    WriteByteMsg[10] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                //                    break;
+                //                }
+                //            case 1:
+                //                {
+                //                    WriteByteMsg[14] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                //                    break;
+                //                }
+                //            case 2:
+                //                {
+                //                    WriteByteMsg[18] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                //                    break;
+                //                }
+                //        }
+                //        pcvr.RecordZhouMoveState[i] = (byte)pcvr.ZhouMoveEnum.WuYiYi;
+                //    }
+                //}
+                //for (int i = 0; i < pcvr.RecordZhouCmdChanged.Length; i++)
+                //{
+                //    if (pcvr.RecordZhouCmdChanged[i] == 0x01)
+                //    {
+                //        switch (i)
+                //        {
+                //            case 0:
+                //                {
+                //                    WriteByteMsg[10] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                //                    break;
+                //                }
+                //            case 1:
+                //                {
+                //                    WriteByteMsg[14] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                //                    break;
+                //                }
+                //            case 2:
+                //                {
+                //                    WriteByteMsg[18] = (byte)pcvr.ZhouMoveEnum.TingZhi;
+                //                    break;
+                //                }
+                //        }
+                //        pcvr.RecordZhouCmdChanged[i] = 0x00;
+                //    }
+                //}
                 _SerialPort.Write(WriteByteMsg, 0, WriteByteMsg.Length);
 //				_SerialPort.DiscardOutBuffer();
 				WriteCount++;

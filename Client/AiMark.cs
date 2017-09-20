@@ -116,7 +116,8 @@ public class AiMark : MonoBehaviour
 		playerScript.PlayZhuJiaoMarkAction(this);
         if (playerScript.PlayerSt == PlayerTypeEnum.FeiJi)
         {
-            Debug.Log("cmd " + DianDongGCmd + ", DianDongGangSpeed " + DianDongGangSpeed);
+            Debug.Log("cmd " + DianDongGCmd + ", DianDongGangSpeed " + DianDongGangSpeed + ", mark " + name
+                + ", path " + transform.parent.name);
             pcvr.GetInstance().DoPlayerPathDianDongGangCmd(DianDongGCmd, DianDongGangSpeed);
         }
 	}
