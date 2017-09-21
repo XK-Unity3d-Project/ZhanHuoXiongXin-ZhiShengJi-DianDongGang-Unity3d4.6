@@ -1286,7 +1286,7 @@ QiNangArray[0]            QiNangArray[1]
     const float TimeOutJiaoZhunDianDongGang = 60f; //校准电动缸的最大时间,如果超时则停止校准。
     public ZhouCmdEnum[] RecordZhouCmdState = new ZhouCmdEnum[3] { ZhouCmdEnum.Stop, ZhouCmdEnum.Stop, ZhouCmdEnum.Stop };
     public byte[] RecordZhouMoveSpeed = new byte[3];
-    public static byte[] RecordZhouMoveState = new byte[3] {0x55, 0x55, 0x55};
+    //public static byte[] RecordZhouMoveState = new byte[3] {0x55, 0x55, 0x55};
     public static byte[] RecordZhouCmdChanged = new byte[4];
     float TimeLastChangeZhouCmd;
     IEnumerator ResetZhouCmdState(int indexVal, ZhouCmdEnum cmd, byte moveSpeed, int moveDis = 0xffff)
@@ -1359,58 +1359,58 @@ QiNangArray[0]            QiNangArray[1]
             //    }
             //}
 
-            if (ZhouMoveStateB == (byte)ZhouMoveEnum.TingZhi)
-            {
-                if (Time.time - TimeLastDianDongGang[1] >= disTime)
-                {
-                    if (ZhouTrigger[2] == 0 && ZhouTrigger[3] == 0 && ZhouCmdStateB == ZhouCmdEnum.Stop)
-                    {
-                        if (RecordZhouCmdState[1] == ZhouCmdEnum.NiShiZhen ||
-                            RecordZhouCmdState[1] == ZhouCmdEnum.ShunShiZhen)
-                        {
-                            ZhouCmdStateB = RecordZhouCmdState[1];
-                            ZhouMoveSpeedB = RecordZhouMoveSpeed[1];
-                            ZhouMoveDisB = DianDongGangMoveDisMax;
-                        }
-                    }
-                }
-                else
-                {
-                    Debug.Log("********************ZhouCmdStateB " + ZhouCmdStateB);
-                    if (ZhouCmdStateB == ZhouCmdEnum.NiShiZhen ||
-                        ZhouCmdStateB == ZhouCmdEnum.ShunShiZhen)
-                    {
-                        RecordZhouCmdState[1] = ZhouCmdStateB;
-                        //RecordZhouMoveSpeed[1] = ZhouMoveSpeedB;
-                    }
-                    ZhouCmdStateB = ZhouCmdEnum.Stop;
-                    //ZhouMoveSpeedB = 0x10;
-                }
-            }
-            else
-            {
-                if (RecordZhouCmdState[1] == ZhouCmdEnum.Stop)
-                {
-                    ZhouCmdStateB = ZhouCmdEnum.Stop;
-                }
-            }
+            //if (ZhouMoveStateB == (byte)ZhouMoveEnum.TingZhi)
+            //{
+            //    if (Time.time - TimeLastDianDongGang[1] >= disTime)
+            //    {
+            //        if (ZhouTrigger[2] == 0 && ZhouTrigger[3] == 0 && ZhouCmdStateB == ZhouCmdEnum.Stop)
+            //        {
+            //            if (RecordZhouCmdState[1] == ZhouCmdEnum.NiShiZhen ||
+            //                RecordZhouCmdState[1] == ZhouCmdEnum.ShunShiZhen)
+            //            {
+            //                ZhouCmdStateB = RecordZhouCmdState[1];
+            //                ZhouMoveSpeedB = RecordZhouMoveSpeed[1];
+            //                ZhouMoveDisB = DianDongGangMoveDisMax;
+            //            }
+            //        }
+            //    }
+            //    else
+            //    {
+            //        Debug.Log("********************ZhouCmdStateB " + ZhouCmdStateB);
+            //        if (ZhouCmdStateB == ZhouCmdEnum.NiShiZhen ||
+            //            ZhouCmdStateB == ZhouCmdEnum.ShunShiZhen)
+            //        {
+            //            RecordZhouCmdState[1] = ZhouCmdStateB;
+            //            //RecordZhouMoveSpeed[1] = ZhouMoveSpeedB;
+            //        }
+            //        ZhouCmdStateB = ZhouCmdEnum.Stop;
+            //        //ZhouMoveSpeedB = 0x10;
+            //    }
+            //}
+            //else
+            //{
+            //    if (RecordZhouCmdState[1] == ZhouCmdEnum.Stop)
+            //    {
+            //        ZhouCmdStateB = ZhouCmdEnum.Stop;
+            //    }
+            //}
 
-            if (ZhouMoveStateC == (byte)ZhouMoveEnum.TingZhi)
-            {
-                if (Time.time - TimeLastDianDongGang[2] >= disTime)
-                {
-                    ZhouCmdStateC = RecordZhouCmdState[2];
-                    ZhouMoveDisC = DianDongGangXingCheng[2];
-                    ZhouMoveSpeedC = RecordZhouMoveSpeed[2];
-                }
-                else
-                {
-                    RecordZhouCmdState[2] = ZhouCmdStateC;
-                    RecordZhouMoveSpeed[2] = ZhouMoveSpeedC;
-                    ZhouCmdStateC = ZhouCmdEnum.Stop;
-                    ZhouMoveSpeedC = 0x10;
-                }
-            }
+            //if (ZhouMoveStateC == (byte)ZhouMoveEnum.TingZhi)
+            //{
+            //    if (Time.time - TimeLastDianDongGang[2] >= disTime)
+            //    {
+            //        ZhouCmdStateC = RecordZhouCmdState[2];
+            //        ZhouMoveDisC = DianDongGangXingCheng[2];
+            //        ZhouMoveSpeedC = RecordZhouMoveSpeed[2];
+            //    }
+            //    else
+            //    {
+            //        RecordZhouCmdState[2] = ZhouCmdStateC;
+            //        RecordZhouMoveSpeed[2] = ZhouMoveSpeedC;
+            //        ZhouCmdStateC = ZhouCmdEnum.Stop;
+            //        ZhouMoveSpeedC = 0x10;
+            //    }
+            //}
             return;
         }
 
@@ -2753,7 +2753,7 @@ QiNangArray[0]            QiNangArray[1]
         if (zhouState == (byte)ZhouMoveEnum.TingZhi)
         {
             TimeLastDianDongGang[indexVal - 1] = Time.time;
-            RecordZhouMoveState[indexVal - 1] = zhouState;
+            //RecordZhouMoveState[indexVal - 1] = zhouState;
             //if (indexVal == 2)
             //{
                 //Debug.Log("222222222222222222222**************** indexVal " + indexVal);
